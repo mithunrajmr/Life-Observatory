@@ -1,0 +1,283 @@
+export type DomainId = 
+  | 'career' 
+  | 'learning' 
+  | 'health' 
+  | 'relationships' 
+  | 'energy' 
+  | 'personal' 
+  | 'finance';
+
+export interface LifeDomainConfig {
+  id: DomainId;
+  name: string;
+  description: string;
+  color: string;
+  defaultActive: boolean;
+}
+
+export const DEFAULT_DOMAINS: Record<DomainId, LifeDomainConfig> = {
+  career: {
+    id: 'career',
+    name: 'Career & Work',
+    description: 'Professional projects, milestones, workplace dynamics, and career growth.',
+    color: '#4F46E5', // Deep Indigo
+    defaultActive: true,
+  },
+  learning: {
+    id: 'learning',
+    name: 'Learning & Skills',
+    description: 'Acquiring knowledge, building capabilities, courses, and intellectual growth.',
+    color: '#0D9488', // Muted Teal
+    defaultActive: true,
+  },
+  health: {
+    id: 'health',
+    name: 'Health & Fitness',
+    description: 'Physical activity, nutrition, sleep quality, and physical wellbeing.',
+    color: '#10B981', // Emerald
+    defaultActive: true,
+  },
+  relationships: {
+    id: 'relationships',
+    name: 'Relationships & Social',
+    description: 'Family, friends, community, and meaningful social connections.',
+    color: '#D97706', // Warm Amber
+    defaultActive: true,
+  },
+  energy: {
+    id: 'energy',
+    name: 'Energy & Wellbeing',
+    description: 'Mental clarity, emotional stability, stress levels, and stamina.',
+    color: '#8B5CF6', // Soft Violet
+    defaultActive: true,
+  },
+  personal: {
+    id: 'personal',
+    name: 'Personal Projects',
+    description: 'Hobbies, creative endeavors, reading, and personal interests.',
+    color: '#06B6D4', // Cyan
+    defaultActive: true,
+  },
+  finance: {
+    id: 'finance',
+    name: 'Financial Wellbeing',
+    description: 'Budgeting, financial milestones, investments, and economic security.',
+    color: '#059669', // Forest
+    defaultActive: true,
+  },
+};
+
+export type EventType = 
+  | 'achievement' 
+  | 'setback' 
+  | 'activity' 
+  | 'routine' 
+  | 'social' 
+  | 'milestone' 
+  | 'decision_point';
+
+export type EventSentiment = 'positive' | 'neutral' | 'negative' | 'mixed';
+
+export interface EventSource {
+  type: 'reflection' | 'calendar' | 'conversation' | 'direct_entry';
+  ref: string;
+  externalId?: string;
+}
+
+export interface LifeEvent {
+  id: string;
+  userId: string;
+  type: EventType;
+  domainIds: DomainId[];
+  title: string;
+  summary: string;
+  occurredAt: string; // ISO string
+  createdAt: string;
+  source: EventSource;
+  confidence: number; // 0.0 - 1.0
+  sentiment: EventSentiment;
+  intensity: number; // 1 - 5
+  isTurningPointCandidate: boolean;
+  contentHash?: string;
+}
+
+export interface Reflection {
+  id: string;
+  userId: string;
+  content: string;
+  occurredAt: string;
+  createdAt: string;
+  processed: boolean;
+  extractedEventIds: string[];
+  followUpQuestion?: string | null;
+}
+
+export interface Goal {
+  id: string;
+  userId: string;
+  title: string;
+  domainId: DomainId;
+  status: 'active' | 'completed' | 'paused' | 'archived';
+  targetDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  evidenceRefs: string[];
+  notes?: string;
+}
+
+export interface Decision {
+  id: string;
+  userId: string;
+  title: string;
+  options: string[];
+  chosenOption?: string;
+  factors: string[];
+  createdAt: string;
+  status: 'pending' | 'decided' | 'reviewed';
+}
+
+export interface Prediction {
+  id: string;
+  userId: string;
+  decisionId?: string;
+  title: string;
+  expectedOutcomes: Array<{
+    domain: DomainId;
+    direction: 'up' | 'down' | 'stable';
+    confidence: number;
+    timeframe: string;
+  }>;
+  reviewAt: string;
+  status: 'active' | 'evaluated';
+  actualOutcomeId?: string;
+  createdAt: string;
+}
+
+export interface Outcome {
+  id: string;
+  userId: string;
+  predictionId: string;
+  actualOutcomes: Array<{
+    domain: DomainId;
+    observedDirection: 'up' | 'down' | 'stable';
+    notes: string;
+  }>;
+  alignmentScore: number; // 0.0 - 1.0
+  userReflection: string;
+  evaluatedAt: string;
+}
+
+export interface TurningPoint {
+  id: string;
+  userId: string;
+  eventId: string;
+  title: string;
+  description: string;
+  occurredAt: string;
+  status: 'candidate' | 'confirmed' | 'rejected';
+  trajectoryShiftSummary: string;
+  evidenceRefs: string[];
+  domains: DomainId[];
+}
+
+export type TrendDirection = 
+  | 'up' 
+  | 'down' 
+  | 'stable' 
+  | 'emerging' 
+  | 'mixed' 
+  | 'insufficient_evidence'
+  | 'sustained_up'
+  | 'sustained_down';
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'insufficient_evidence';
+
+export interface EvidenceItem {
+  sourceType: 'user_reflection' | 'calendar' | 'conversation' | 'user_correction';
+  sourceRef: string;
+  occurredAt: string;
+  summary: string;
+  confidence: number;
+}
+
+export interface LifeInsight {
+  id: string;
+  userId: string;
+  type: 'invisible_progress' | 'what_changed' | 'drift' | 'turning_point' | 'pattern' | 'stagnation';
+  title: string;
+  summary: string;
+  explanation: string;
+  domainIds: DomainId[];
+  fingerprint: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  confidence: ConfidenceLevel;
+  evidence: EvidenceItem[];
+  priorState?: string;
+  currentState?: string;
+  createdAt: string;
+}
+
+export interface DomainTrajectoryPoint {
+  date: string;
+  value: number; // -1.0 to 1.0
+  eventCount: number;
+}
+
+export interface DomainState {
+  domainId: DomainId;
+  direction: TrendDirection;
+  trendScore: number; // -1.0 to 1.0
+  eventCount: number;
+  confidence: ConfidenceLevel;
+  points: DomainTrajectoryPoint[];
+  summary: string;
+}
+
+export interface LifeSnapshot {
+  id: string;
+  userId: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  domainStates: Record<DomainId, DomainState>;
+  turningPoints: TurningPoint[];
+  insights: LifeInsight[];
+  createdAt: string;
+}
+
+export interface Connection {
+  id: string;
+  userId: string;
+  provider: 'google_calendar' | 'local_demo';
+  status: 'connected' | 'disconnected';
+  scopes: string[];
+  lastSyncAt: string;
+  itemCount: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  content: string;
+  timestamp: string;
+  mode?: 'companion' | 'advisor';
+  structuredAdvice?: {
+    whatISee: string;
+    whatMayBeLimiting: string;
+    options: string[];
+    tradeoffs: string[];
+    whatToTestNext: string;
+  };
+}
+
+export interface Conversation {
+  id: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
