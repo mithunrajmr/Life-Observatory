@@ -153,13 +153,25 @@ async function detectInvisibleProgress(
     const firstHalf = domainEvents.slice(0, Math.floor(domainEvents.length / 2));
     const secondHalf = domainEvents.slice(Math.floor(domainEvents.length / 2));
 
-    const evidenceItems: EvidenceItem[] = secondHalf.slice(-3).map(ev => ({
-      sourceType: ev.source.type === 'calendar' ? 'calendar' : 'user_reflection',
-      sourceRef: ev.id,
-      occurredAt: ev.occurredAt,
-      summary: ev.summary || ev.title,
-      confidence: ev.confidence || 0.85,
-    }));
+    const seenEvidenceSummaries = new Set<string>();
+    const evidenceItems: EvidenceItem[] = [];
+    for (const ev of [...secondHalf].reverse()) {
+      const cleanSum = (ev.summary || ev.title || '')
+        .replace(/Occurred At:\s*[\d\-:T.Z]+\s*/gi, '')
+        .replace(/^(?:User Reflection:\s*)+/gi, '')
+        .trim();
+      const normKey = cleanSum.toLowerCase().slice(0, 50);
+      if (!normKey || seenEvidenceSummaries.has(normKey)) continue;
+      seenEvidenceSummaries.add(normKey);
+      evidenceItems.push({
+        sourceType: ev.source.type === 'calendar' ? 'calendar' : 'user_reflection',
+        sourceRef: ev.id,
+        occurredAt: ev.occurredAt,
+        summary: cleanSum,
+        confidence: ev.confidence || 0.85,
+      });
+      if (evidenceItems.length >= 3) break;
+    }
 
     // Generate natural synthesis using Gemini
     let aiSummary = `Your activity in ${domainId} has shifted from intermittent intent to consistent, completed sessions.`;

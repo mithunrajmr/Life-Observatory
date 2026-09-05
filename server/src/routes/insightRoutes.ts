@@ -14,7 +14,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
     const insights: LifeInsight[] = [];
     snap.forEach(d => insights.push(d.data() as LifeInsight));
 
-    insights.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    insights.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     res.json({ insights });
   } catch {

@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { Feather, Send, CheckCircle, HelpCircle, Loader2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
-import { DOMAIN_CONFIGS } from '../types';
 
 interface ReflectionInputProps {
   onReflectionProcessed?: () => void;
+  className?: string;
 }
 
-export const ReflectionInput: React.FC<ReflectionInputProps> = ({ onReflectionProcessed }) => {
+const MAX_LEN = 10000;
+
+export const ReflectionInput: React.FC<ReflectionInputProps> = ({
+  onReflectionProcessed,
+  className = '',
+}) => {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<{
@@ -17,146 +22,177 @@ export const ReflectionInput: React.FC<ReflectionInputProps> = ({ onReflectionPr
   const [followUpAnswer, setFollowUpAnswer] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const todayString = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  const overLimit = content.length > MAX_LEN;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || isSubmitting) return;
+    if (!content.trim() || isSubmitting || overLimit) return;
 
     setIsSubmitting(true);
     setErrorMsg('');
     try {
       const response = await api.submitReflection(content.trim());
       setResult({
-        events: response.events,
-        followUpQuestion: response.followUpQuestion,
+        events: response.events || [],
+        followUpQuestion: response.followUpQuestion || null,
       });
       setContent('');
-      if (onReflectionProcessed) {
-        onReflectionProcessed();
-      }
+      onReflectionProcessed?.();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to submit reflection.');
+      setErrorMsg(err.message || 'Could not record your reflection just now. Try again in a moment.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      handleSubmit(e as unknown as React.FormEvent);
+    }
+  };
+
   const handleFollowUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!followUpAnswer.trim()) return;
+    if (!followUpAnswer.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       await api.submitReflection(`Follow-up clarification: ${followUpAnswer.trim()}`);
       setFollowUpAnswer('');
-      setResult(prev => prev ? { ...prev, followUpQuestion: null } : null);
-      if (onReflectionProcessed) {
-        onReflectionProcessed();
-      }
+      setResult((prev) => (prev ? { ...prev, followUpQuestion: null } : null));
+      onReflectionProcessed?.();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to submit clarification.');
+      setErrorMsg(err.message || 'Could not send that clarification.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="card mb-8 animate-fade-in border-slate-800">
-      <div className="flex items-center gap-2 mb-3">
-        <Feather size={18} className="text-indigo-400" />
-        <h2 className="text-base font-bold text-white">Daily Reflection</h2>
-        <span className="text-xs text-slate-500">• Natural language, zero questionnaire</span>
+    <section
+      className={`card bg-[#FFFFFF] border border-[#DDE2DD] p-6 sm:p-7 ${className}`}
+      aria-label="Daily Check-in"
+    >
+      {/* Header — editorial voice */}
+      <div className="flex items-baseline justify-between gap-3 mb-4">
+        <div>
+          <span className="editorial-eyebrow">Today · {todayString}</span>
+          <h2 className="font-editorial text-[1.4rem] sm:text-[1.6rem] leading-tight text-[#1D2421] mt-1.5">
+            How was your day?
+          </h2>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="How was today? What did you work on, struggle with, or experience? (e.g. 'Rough day. Finished the main feature, had a tough sync, but finally went for a run.')"
-          className="w-full h-24 text-sm resize-none"
-          disabled={isSubmitting}
-        />
+      <p className="text-[13.5px] text-[#66706B] leading-relaxed mb-4 max-w-md">
+        Say what’s on your mind, in your own words. No forms — the Observatory listens and quietly connects the threads.
+      </p>
+
+      {/* Composer */}
+      <form onSubmit={handleSubmit}>
+        <div className="rounded-2xl bg-[#F7F6F2] border border-[#DDE2DD] p-4 focus-within:border-[#355C4A] focus-within:bg-[#FFFFFF] transition-colors">
+          <textarea
+            value={content}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val.length <= MAX_LEN) {
+                setContent(val);
+              } else {
+                setContent(val.slice(0, MAX_LEN));
+              }
+            }}
+            maxLength={MAX_LEN}
+            onKeyDown={handleKeyDown}
+            placeholder="This morning I finally…"
+            rows={3}
+            className="w-full text-[14px] bg-transparent border-0 p-0 text-[#1D2421] placeholder:text-[#A0A8A2] focus:outline-none focus:ring-0 resize-none leading-relaxed"
+            disabled={isSubmitting}
+          />
+
+          <div className="flex items-center justify-between pt-3 mt-1 border-t border-[#DDE2DD]/70">
+            <span
+              className={`font-mono text-[10px] tracking-[0.06em] ${
+                content.length >= MAX_LEN ? 'text-[#C58A45] font-semibold' : 'text-[#8A938E]'
+              }`}
+            >
+              {content.length >= 8000 ? (
+                `${content.length.toLocaleString()} / ${MAX_LEN.toLocaleString()}${content.length >= MAX_LEN ? ' (limit reached)' : ''}`
+              ) : (
+                '⌘ + Enter to save'
+              )}
+            </span>
+
+            <button
+              type="submit"
+              disabled={isSubmitting || !content.trim() || overLimit}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#355C4A] text-white text-[13px] font-medium pl-3.5 pr-4 py-2 hover:bg-[#284738] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <Send size={13} />}
+              <span>{isSubmitting ? 'Saving' : 'Reflect'}</span>
+            </button>
+          </div>
+        </div>
 
         {errorMsg && (
-          <p className="text-xs text-red-400">{errorMsg}</p>
+          <p className="text-[12.5px] text-[#A95C58] mt-2.5">
+            {errorMsg}
+          </p>
         )}
-
-        <div className="flex items-center justify-between pt-1">
-          <span className="text-xs text-slate-500">
-            Gemini incrementally extracts life events and updates your Life Horizon.
-          </span>
-          <button
-            type="submit"
-            disabled={isSubmitting || !content.trim()}
-            className="btn-primary text-xs py-2 px-4 disabled:opacity-50"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Processing...
-              </>
-            ) : (
-              <>
-                <Send size={14} /> Record Reflection
-              </>
-            )}
-          </button>
-        </div>
       </form>
 
-      {/* Extracted Structured Signals Feedback */}
+      {/* What the Observatory noticed */}
       {result && (
-        <div className="mt-4 pt-4 border-t border-slate-800 animate-fade-in">
-          <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-emerald-400">
-            <CheckCircle size={14} />
-            <span>Incorporated into Life Model: {result.events.length} observations derived</span>
+        <div className="mt-5 pt-4 border-t border-[#DDE2DD] animate-fade-in">
+          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[#3E8064] mb-2.5">
+            <CheckCircle2 size={14} />
+            <span>Noticed in what you wrote</span>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {result.events.map((ev, idx) => (
-              <div 
-                key={idx} 
-                className="text-xs bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-2"
-              >
-                <span className="font-medium text-slate-200">{ev.title}</span>
-                {ev.domainIds.map((domId: any) => {
-                  const d = domId as any;
-                  const cfg = (DOMAIN_CONFIGS as any)[d];
-                  return (
-                    <span 
-                      key={d} 
-                      className="text-[10px] px-1.5 py-0.5 rounded font-bold"
-                      style={{ backgroundColor: `${cfg?.color || '#818CF8'}20`, color: cfg?.color || '#818CF8' }}
-                    >
-                      {cfg?.name || d}
-                    </span>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          {result.events.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-1">
+              {result.events.map((ev, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-2 text-[12.5px] text-[#1D2421] bg-[#F7F6F2] pl-2.5 pr-3 py-1.5 rounded-full border border-[#DDE2DD]"
+                >
+                  {ev.domainIds?.[0] && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#355C4A]" />
+                  )}
+                  <span className="truncate max-w-[220px]">{ev.title || ev.summary}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[13px] text-[#66706B]">Saved. This becomes part of your longer arc.</p>
+          )}
 
-          {/* Single Gated Follow-up Question if materially ambiguous */}
           {result.followUpQuestion && (
-            <div className="mt-4 p-3.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl">
-              <div className="flex items-start gap-2.5 mb-2">
-                <HelpCircle size={16} className="text-indigo-400 mt-0.5" />
-                <p className="text-xs font-medium text-indigo-200 leading-relaxed">
+            <div className="p-3.5 bg-[#FAF3E8] border border-[#C58A45]/30 rounded-xl mt-3">
+              <div className="flex items-start gap-2 mb-2.5">
+                <Sparkles size={14} className="text-[#C58A45] shrink-0 mt-0.5" />
+                <p className="text-[13px] font-medium text-[#1D2421] leading-relaxed">
                   {result.followUpQuestion}
                 </p>
               </div>
 
-              <form onSubmit={handleFollowUpSubmit} className="flex gap-2 mt-2">
+              <form onSubmit={handleFollowUpSubmit} className="flex gap-2">
                 <input
                   type="text"
                   value={followUpAnswer}
                   onChange={(e) => setFollowUpAnswer(e.target.value)}
-                  placeholder="Optional clarification..."
-                  className="flex-1 text-xs py-1.5 px-3"
+                  placeholder="A quick note (optional)…"
+                  className="flex-1 text-[13px] py-2 px-3 bg-[#FFFFFF] border border-[#DDE2DD] rounded-lg focus:border-[#355C4A] focus:outline-none"
                   disabled={isSubmitting}
                 />
                 <button
                   type="submit"
                   disabled={isSubmitting || !followUpAnswer.trim()}
-                  className="btn-secondary text-xs py-1.5 px-3"
+                  className="btn-primary text-[13px] py-1.5 px-4"
                 >
                   Reply
                 </button>
@@ -165,6 +201,6 @@ export const ReflectionInput: React.FC<ReflectionInputProps> = ({ onReflectionPr
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 };

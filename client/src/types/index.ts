@@ -16,13 +16,13 @@ export interface LifeDomainConfig {
 }
 
 export const DOMAIN_CONFIGS: Record<DomainId, LifeDomainConfig> = {
-  career: { id: 'career', name: 'Career & Work', description: 'Professional progress & projects', color: '#818CF8', defaultActive: true },
-  learning: { id: 'learning', name: 'Learning & Skills', description: 'Acquiring knowledge & capabilities', color: '#2DD4BF', defaultActive: true },
-  health: { id: 'health', name: 'Health & Fitness', description: 'Physical energy, workouts, sleep', color: '#34D399', defaultActive: true },
-  relationships: { id: 'relationships', name: 'Relationships', description: 'Family, friends & community', color: '#FBBF24', defaultActive: true },
-  energy: { id: 'energy', name: 'Energy & Wellbeing', description: 'Mental clarity & stamina', color: '#C084FC', defaultActive: true },
-  personal: { id: 'personal', name: 'Personal Projects', description: 'Creative pursuits & hobbies', color: '#38BDF8', defaultActive: true },
-  finance: { id: 'finance', name: 'Financial Wellbeing', description: 'Budgeting & financial milestones', color: '#4ADE80', defaultActive: true },
+  career: { id: 'career', name: 'Career & Work', description: 'Professional progress & projects', color: '#3A5A78', defaultActive: true },
+  learning: { id: 'learning', name: 'Learning & Skills', description: 'Acquiring knowledge & capabilities', color: '#355C4A', defaultActive: true },
+  health: { id: 'health', name: 'Health & Fitness', description: 'Physical energy, workouts, sleep', color: '#D96B43', defaultActive: true },
+  relationships: { id: 'relationships', name: 'Relationships', description: 'Family, friends & community', color: '#7A5B82', defaultActive: true },
+  energy: { id: 'energy', name: 'Energy & Wellbeing', description: 'Mental clarity & stamina', color: '#C58A45', defaultActive: true },
+  personal: { id: 'personal', name: 'Personal Projects', description: 'Creative pursuits & hobbies', color: '#4A7C59', defaultActive: true },
+  finance: { id: 'finance', name: 'Financial Wellbeing', description: 'Budgeting & financial milestones', color: '#2E6F54', defaultActive: true },
 };
 
 export type TrendDirection = 
@@ -48,13 +48,17 @@ export interface EvidenceItem {
 export interface LifeInsight {
   id: string;
   userId: string;
-  type: 'invisible_progress' | 'what_changed' | 'drift' | 'turning_point' | 'pattern' | 'stagnation';
+  type: 'invisible_progress' | 'what_changed' | 'drift' | 'turning_point' | 'pattern' | 'stagnation' | 'progress';
   title: string;
   summary: string;
   explanation: string;
   domainIds: DomainId[];
-  fingerprint: string;
-  period: { from: string; to: string };
+  domainId?: DomainId;
+  fingerprint?: string;
+  period?: { from: string; to: string };
+  timeframe?: string;
+  text?: string;
+  magnitude?: string;
   confidence: ConfidenceLevel;
   evidence: EvidenceItem[];
   priorState?: string;
@@ -81,14 +85,18 @@ export interface DomainState {
 export interface TurningPoint {
   id: string;
   userId: string;
-  eventId: string;
+  eventId?: string;
   title: string;
   description: string;
-  occurredAt: string;
+  occurredAt?: string;
+  timestamp?: string;
   status: 'candidate' | 'confirmed' | 'rejected';
-  trajectoryShiftSummary: string;
-  evidenceRefs: string[];
-  domains: DomainId[];
+  trajectoryShiftSummary?: string;
+  impact?: 'positive' | 'negative' | 'neutral';
+  evidenceRefs?: string[];
+  evidence?: string[];
+  domains?: DomainId[];
+  domainId?: DomainId;
 }
 
 export interface LifeSnapshot {

@@ -18,3 +18,7 @@ coverage/
 serviceAccountKey.json
 service-account*.json
 *.pem
+.claude/
+.vscode/
+*.webm
+qa/recordings/

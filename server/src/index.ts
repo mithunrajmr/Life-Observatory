@@ -46,8 +46,17 @@ app.use('/api/turning-points', turningPointRoutes);
 app.use('/api/connections', connectionRoutes);
 
 // Serve static frontend in production (Single Container Cloud Run architecture)
-const clientBuildPath = path.resolve(__dirname, ENV.CLIENT_DIST_PATH);
+const candidatePaths = [
+  ENV.CLIENT_DIST_PATH ? path.resolve(__dirname, ENV.CLIENT_DIST_PATH) : null,
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+].filter(Boolean) as string[];
+
+const clientBuildPath = candidatePaths.find(p => fs.existsSync(p)) || candidatePaths[0];
 if (fs.existsSync(clientBuildPath)) {
+  console.log(`[Life Observatory Server] Serving client static assets from: ${clientBuildPath}`);
   app.use(express.static(clientBuildPath));
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
@@ -55,6 +64,8 @@ if (fs.existsSync(clientBuildPath)) {
     }
     res.sendFile(path.join(clientBuildPath, 'index.html'));
   });
+} else {
+  console.warn(`[Life Observatory Server] Warning: Client build path not found at candidate paths:`, candidatePaths);
 }
 
 // Global safe error handling

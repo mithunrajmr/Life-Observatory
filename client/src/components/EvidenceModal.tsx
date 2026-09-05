@@ -1,115 +1,180 @@
 import React from 'react';
-import { X, ShieldCheck, Calendar, BookOpen, MessageSquare, AlertCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, ShieldCheck, Calendar, BookOpen, MessageSquare } from 'lucide-react';
 import { EvidenceItem } from '../types';
 
 interface EvidenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  evidence: EvidenceItem[];
+  evidence?: EvidenceItem[];
   confidence?: string;
   explanation?: string;
 }
+
+// Clean internal prompts, ISO timestamps, and prefixes that might leak into summaries
+const cleanSummary = (text?: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/Occurred At:\s*[\d\-:T.Z]+\s*/gi, '')
+    .replace(/^(?:User Reflection:\s*)+/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/^["']|["']$/g, '')
+    .trim();
+};
+
+const formatEvidenceDate = (dStr?: string): string => {
+  if (!dStr) return 'Observed in timeline';
+  const d = new Date(dStr);
+  if (isNaN(d.getTime())) return 'Observed in timeline';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 export const EvidenceModal: React.FC<EvidenceModalProps> = ({
   isOpen,
   onClose,
   title,
-  evidence,
-  confidence,
+  evidence = [],
+  confidence = 'high',
   explanation,
 }) => {
   if (!isOpen) return null;
 
-  const getSourceIcon = (sourceType: string) => {
+  const getSourceIcon = (sourceType?: string) => {
     switch (sourceType) {
       case 'calendar':
-        return <Calendar size={18} className="text-teal-400" />;
+        return <Calendar size={15} className="text-[#3A5A78]" />;
       case 'user_reflection':
-        return <BookOpen size={18} className="text-indigo-400" />;
+        return <BookOpen size={15} className="text-[#355C4A]" />;
       case 'conversation':
-        return <MessageSquare size={18} className="text-amber-400" />;
+        return <MessageSquare size={15} className="text-[#C58A45]" />;
       default:
-        return <ShieldCheck size={18} className="text-slate-400" />;
+        return <ShieldCheck size={15} className="text-[#355C4A]" />;
     }
   };
 
-  return (
+  // Aggressively deduplicate and clean evidence items
+  const processedEvidence = React.useMemo(() => {
+    const seen = new Set<string>();
+    const deduped: EvidenceItem[] = [];
+    for (const item of evidence) {
+      const cleaned = cleanSummary(item.summary);
+      if (!cleaned) continue;
+      // Key by normalized first 60 chars of cleaned summary
+      const key = cleaned.toLowerCase().slice(0, 60).replace(/\s+/g, ' ');
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push({
+          ...item,
+          summary: cleaned,
+        });
+      }
+    }
+    return deduped;
+  }, [evidence]);
+
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4" 
-      style={{ backgroundColor: 'rgba(11, 15, 25, 0.8)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1D2421]/50 backdrop-blur-xs animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="evidence-modal-title"
     >
-      <div className="card w-full max-w-lg animate-fade-in relative max-h-[85vh] overflow-y-auto">
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition"
-          aria-label="Close evidence details"
-        >
-          <X size={20} />
-        </button>
-
-        <div className="flex items-center gap-2 mb-3">
-          <ShieldCheck size={20} className="text-indigo-400" />
-          <span className="text-xs uppercase tracking-wider font-semibold text-indigo-400">
-            Evidence & Provenance
-          </span>
-        </div>
-
-        <h2 id="evidence-modal-title" className="text-xl font-bold mb-2 text-white">
-          {title}
-        </h2>
-
-        {explanation && (
-          <p className="text-sm text-slate-300 mb-6 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-            {explanation}
-          </p>
-        )}
-
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-xs text-slate-400 mb-3 border-b border-slate-800 pb-2">
-            <span>Observed Source Records</span>
-            {confidence && (
-              <span className="badge" style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#818CF8' }}>
-                Confidence: {confidence}
+      <div 
+        className="bg-[#FFFFFF] border border-[#DDE2DD] rounded-[24px] shadow-xl w-full max-w-xl p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#DDE2DD]/60 mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#EFF3EE] text-[#355C4A] flex items-center justify-center font-bold shrink-0">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <span className="font-mono text-[10px] tracking-[0.1em] uppercase text-[#355C4A] block">
+                Observation Provenance
               </span>
-            )}
+              <h3 id="evidence-modal-title" className="font-editorial text-xl sm:text-[1.35rem] font-medium text-[#1D2421] leading-tight mt-0.5">
+                Why am I seeing this?
+              </h3>
+            </div>
           </div>
 
-          {evidence.length === 0 ? (
-            <div className="flex items-center gap-3 p-4 bg-slate-900/40 rounded-lg text-slate-400 text-sm">
-              <AlertCircle size={18} />
-              <span>Limited individual event records for this window. Trajectory derived from aggregate signals.</span>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {evidence.map((item, idx) => (
-                <div 
-                  key={idx} 
-                  className="p-3 bg-slate-900/70 border border-slate-800 rounded-lg flex items-start gap-3 hover:border-slate-700 transition"
-                >
-                  <div className="mt-0.5">{getSourceIcon(item.sourceType)}</div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200">{item.summary}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                      <span>Source: {item.sourceType.replace('_', ' ')}</span>
-                      <span>•</span>
-                      <span>{new Date(item.occurredAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full hover:bg-[#F1F2EE] text-[#8A938E] hover:text-[#1D2421] transition"
+            aria-label="Close evidence details"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Insight Title & Explanation */}
+        <div className="mb-5">
+          <p className="font-mono text-[10px] tracking-[0.1em] uppercase text-[#8A938E] mb-1">
+            Grounded Observation
+          </p>
+          <h4 className="font-editorial text-lg sm:text-xl text-[#1D2421] font-medium leading-snug">
+            "{title}"
+          </h4>
+          {explanation && (
+            <p className="text-[13px] text-[#4F5A55] leading-relaxed mt-2.5 pl-3 border-l-2 border-[#355C4A]/40">
+              {explanation}
+            </p>
           )}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500 flex items-center justify-between">
-          <span>Verified against user Life Model</span>
-          <button 
+        {/* Signal confidence badge */}
+        <div className="flex items-center justify-between py-2 px-3.5 rounded-xl bg-[#EFF3EE] border border-[#D9E3D9] mb-5">
+          <span className="text-[11.5px] font-medium text-[#355C4A]">Signal Confidence:</span>
+          <span className="font-mono text-[10px] tracking-[0.1em] font-semibold text-[#355C4A] uppercase">
+            {confidence === 'high' ? 'High · Consistent Pattern' : 'Early Signal · Accumulating'}
+          </span>
+        </div>
+
+        {/* Supporting Evidence Items */}
+        <div className="space-y-3 mb-6">
+          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-[#8A938E] block">
+            Observed Moments in Your Arc
+          </span>
+
+          {processedEvidence.length === 0 ? (
+            <p className="text-xs text-[#66706B] italic py-2">
+              Synthesized from longitudinal reflection trends across your timeline.
+            </p>
+          ) : (
+            processedEvidence.map((item, idx) => (
+              <div 
+                key={idx} 
+                className="p-3.5 rounded-xl bg-[#FAF9F5] border border-[#DDE2DD]/80 flex items-start gap-3 transition hover:border-[#CBD4CB]"
+              >
+                <div className="p-1.5 rounded-lg bg-[#FFFFFF] border border-[#DDE2DD] shrink-0 mt-0.5">
+                  {getSourceIcon(item.sourceType)}
+                </div>
+                <div className="flex-1 text-xs">
+                  <p className="font-body font-normal text-[#1D2421] leading-relaxed text-[13px]">
+                    {item.summary}
+                  </p>
+                  <span className="font-mono text-[10px] text-[#8A938E] block mt-1.5 tracking-wide">
+                    {formatEvidenceDate(item.occurredAt)}
+                    {' · '}
+                    {item.sourceType === 'calendar' ? 'Google Calendar Record' : 'Personal Reflection'}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Grounding statement & close */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-[#DDE2DD]/70">
+          <p className="text-[11.5px] text-[#8A938E] leading-relaxed max-w-xs">
+            We show this because these real events were observed in your timeline.
+          </p>
+
+          <button
             onClick={onClose}
-            className="btn-secondary text-xs py-1.5 px-4"
+            className="rounded-full bg-[#355C4A] text-white text-xs font-medium px-6 py-2.5 hover:bg-[#284738] transition shadow-xs self-end sm:self-auto"
           >
             Done
           </button>
@@ -117,4 +182,6 @@ export const EvidenceModal: React.FC<EvidenceModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

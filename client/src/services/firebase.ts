@@ -40,24 +40,68 @@ export async function signInWithGoogle(): Promise<User> {
   }
 }
 
-export async function signInAsDemo(): Promise<User> {
+export async function signInAsDemo(): Promise<any> {
+  const mockUser = {
+    uid: 'demo-observer-local',
+    email: 'alex@lifeobservatory.demo',
+    displayName: 'Alex Chen',
+    getIdToken: async () => 'demo_token_for_demo-observer-local',
+  };
+
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'demo-api-key') {
+    try {
+      localStorage.setItem('life_observatory_demo_user', JSON.stringify(mockUser));
+    } catch {
+      // ignore
+    }
+    return mockUser;
+  }
+
   try {
     const result = await signInAnonymously(auth);
     return result.user;
   } catch (err: any) {
-    console.error('Demo auth failed:', err.message);
-    throw err;
+    try {
+      localStorage.setItem('life_observatory_demo_user', JSON.stringify(mockUser));
+    } catch {
+      // ignore
+    }
+    return mockUser;
   }
 }
 
 export async function signOutUser(): Promise<void> {
-  await fbSignOut(auth);
+  try {
+    localStorage.removeItem('life_observatory_demo_user');
+  } catch {
+    // ignore
+  }
+  try {
+    await fbSignOut(auth);
+  } catch {
+    // ignore
+  }
 }
 
 export async function getIdToken(): Promise<string | null> {
   const user = auth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
+  if (user) {
+    try {
+      return await user.getIdToken();
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    const stored = localStorage.getItem('life_observatory_demo_user');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return `demo_token_for_${parsed.uid || 'demo-observer-local'}`;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 export { onAuthStateChanged };

@@ -30,6 +30,20 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =
 
   try {
     const goalsCol = getUserSubcollection(uid, 'goals');
+    const snap = await goalsCol.get();
+    let existingGoal: any = null;
+    snap.forEach((d: any) => {
+      const data = d.data ? d.data() : d;
+      if (data.title && data.title.toLowerCase().trim() === title.toLowerCase().trim() && data.status === 'active') {
+        existingGoal = data;
+      }
+    });
+
+    if (existingGoal) {
+      res.status(200).json({ goal: existingGoal });
+      return;
+    }
+
     const newDoc = goalsCol.doc();
     const goal: Goal = {
       id: newDoc.id,
@@ -46,8 +60,9 @@ router.post('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =
 
     await newDoc.set(goal);
     res.status(201).json({ goal });
-  } catch {
-    res.status(500).json({ error: { code: 'GOAL_CREATE_FAILED', message: 'Could not create goal.' } });
+  } catch (err: any) {
+    console.error('[goalRoutes error]', err);
+    res.status(500).json({ error: { code: 'GOAL_CREATE_FAILED', message: err?.message || 'Could not create goal.' } });
   }
 });
 

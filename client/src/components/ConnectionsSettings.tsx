@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ShieldAlert, Trash2, RefreshCw, CheckCircle2, Lock } from 'lucide-react';
+import { Calendar, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 import { Connection } from '../types';
 
@@ -26,23 +26,23 @@ export const ConnectionsSettings: React.FC = () => {
     setStatusMessage(null);
     try {
       const res = await api.syncGoogleCalendar();
-      setStatusMessage(`Successfully synced ${res.syncedCount} calendar events into Life Horizon.`);
+      setStatusMessage(`Successfully observed ${res.syncedCount} calendar moments into your Life Horizon.`);
       await loadConnections();
     } catch (err: any) {
-      setStatusMessage(err.message || 'Calendar sync failed.');
+      setStatusMessage(err.message || 'Calendar observation failed.');
     } finally {
       setIsSyncing(false);
     }
   };
 
   const handleDeleteCalendarData = async () => {
-    if (!window.confirm('Are you sure you want to delete derived Google Calendar events? Manual reflections will be preserved.')) {
+    if (!window.confirm('Are you sure you want to remove derived Google Calendar observations? Your manual reflections will remain safe.')) {
       return;
     }
 
     try {
       await api.deleteConnectionData('google_calendar');
-      setStatusMessage('Google Calendar derived records successfully deleted.');
+      setStatusMessage('Derived calendar observations have been deleted.');
       await loadConnections();
     } catch (err: any) {
       setStatusMessage(err.message || 'Deletion failed.');
@@ -51,17 +51,17 @@ export const ConnectionsSettings: React.FC = () => {
 
   const handleDeleteAllData = async () => {
     const confirmation = window.prompt(
-      'DANGER: This will permanently delete your entire Life Observatory database, all reflections, snapshots, goals, and insights. Type "DELETE" to confirm:'
+      'Permanent Erasure: Type "DELETE" to permanently erase your entire Life Observatory history, reflections, snapshots, and turning points:'
     );
 
     if (confirmation !== 'DELETE') return;
 
     try {
       await api.deleteAllUserData();
-      alert('All your data has been permanently deleted from Life Observatory.');
+      alert('All your personal data has been erased.');
       window.location.reload();
     } catch (err: any) {
-      alert(err.message || 'Failed to complete complete data erasure.');
+      alert(err.message || 'Failed to complete data erasure.');
     }
   };
 
@@ -69,123 +69,177 @@ export const ConnectionsSettings: React.FC = () => {
   const isConnected = calConn?.status === 'connected';
 
   return (
-    <div className="space-y-6 mb-8">
-      {/* Privacy Notice Card */}
-      <div className="card border-indigo-500/20 bg-slate-900/50">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 mt-1">
-            <Lock size={20} />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-white">Your Privacy & Connected Data</h2>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Life Observatory uses user-authorized data strictly to calculate your longitudinal life model.
-              Raw calendar entries and reflections are extracted into structured events and isolated to your verified Firebase UID.
-              We never sell your data or train external public models on your personal reflections.
-            </p>
-          </div>
+    <div className="space-y-12 animate-fade-in w-full mb-16">
+      {/* Manifesto Masthead */}
+      <section className="border-b border-[#DDE2DD] pb-8">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-2 h-2 rounded-full bg-[#355C4A]" />
+          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-[#355C4A]">
+            Architectural Guarantee &amp; Sovereignty
+          </span>
         </div>
-      </div>
+        <h1 className="font-editorial text-3xl sm:text-4xl text-[#1D2421] font-normal leading-tight">
+          Your life belongs to you.
+        </h1>
+        <p className="text-[15px] text-[#66706B] font-light max-w-2xl mt-3 leading-relaxed">
+          Life Observatory was engineered from inception as an intimate cognitive instrument, not an engagement platform. We extract high-level longitudinal momentum strictly to assist your self-awareness. Your narrative is never indexed for advertising and never used to train public models.
+        </p>
+      </section>
 
       {statusMessage && (
-        <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-xs text-indigo-200 flex items-center gap-2">
-          <CheckCircle2 size={16} className="text-indigo-400" />
+        <div className="p-4 bg-[#EDF7F2] border border-[#3E8064]/30 rounded-2xl text-xs text-[#355C4A] flex items-center gap-2.5 font-medium animate-fade-in">
+          <CheckCircle2 size={16} className="text-[#3E8064] shrink-0" />
           <span>{statusMessage}</span>
         </div>
       )}
 
-      {/* Data Sources Grid */}
-      <div className="card">
-        <h3 className="text-base font-bold text-white mb-4">Data Source Connections</h3>
+      {/* The 3 Core Architectural Pillars — Editorial Grid */}
+      <section>
+        <h2 className="font-mono text-[10.5px] tracking-[0.12em] uppercase text-[#8A938E] mb-4">
+          Core Architectural Principles
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+          <div className="border-l-2 border-[#355C4A] pl-4 space-y-1.5">
+            <h3 className="font-editorial text-base text-[#1D2421] font-medium">
+              Zero Model Training
+            </h3>
+            <p className="text-xs text-[#66706B] leading-relaxed">
+              Your written reflections and schedule details are processed ephemerally via Gemini on Cloud Run. They are never ingested into foundation model training datasets.
+            </p>
+          </div>
 
-        <div className="space-y-4">
-          {/* Daily Reflections (Built-in) */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold">
+          <div className="border-l-2 border-[#C58A45] pl-4 space-y-1.5">
+            <h3 className="font-editorial text-base text-[#1D2421] font-medium">
+              Private Data Isolation
+            </h3>
+            <p className="text-xs text-[#66706B] leading-relaxed">
+              All personal history is partitioned under your authenticated account in Cloud Firestore. No third-party data brokers or behavioral trackers exist in this stack.
+            </p>
+          </div>
+
+          <div className="border-l-2 border-[#3E8064] pl-4 space-y-1.5">
+            <h3 className="font-editorial text-base text-[#1D2421] font-medium">
+              Unilateral Sovereignty
+            </h3>
+            <p className="text-xs text-[#66706B] leading-relaxed">
+              You maintain total dominion over your history. Disconnect instruments at any time or execute a complete hard purge of your stored records in one step.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Connected Life Instruments */}
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-4 border-b border-[#DDE2DD] pb-3">
+          <div>
+            <h2 className="font-editorial text-xl text-[#1D2421] font-medium">
+              Connected Life Instruments
+            </h2>
+            <p className="text-xs text-[#66706B] mt-0.5">
+              Sensors feeding behavioral signals into your longitudinal horizon.
+            </p>
+          </div>
+          <span className="font-mono text-[11px] text-[#8A938E]">
+            2 instruments configured
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          {/* Daily Reflections */}
+          <div className="rounded-[18px] bg-[#FAF9F5] border border-[#DDE2DD] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-[#EFF3EE] text-[#355C4A] flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
                 ✓
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Daily Reflections</h4>
-                <p className="text-xs text-slate-400">Natural-language notes and check-ins</p>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-heading font-semibold text-sm text-[#1D2421]">
+                    Personal Reflections
+                  </h4>
+                  <span className="font-mono text-[9.5px] uppercase tracking-wider text-[#355C4A] bg-[#EDF7F2] px-2 py-0.5 rounded-full">
+                    Built-in
+                  </span>
+                </div>
+                <p className="text-xs text-[#66706B] mt-1 leading-relaxed">
+                  Reflective entries you compose in the daily prompt or journal. Only emotional intensity and domain themes are mapped to your horizon.
+                </p>
               </div>
             </div>
-            <span className="badge bg-teal-500/20 text-teal-300">
-              Active / Always On
+            <span className="font-mono text-[11px] text-[#8A938E] self-start sm:self-auto shrink-0">
+              Active Instrument
             </span>
           </div>
 
           {/* Google Calendar */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                <Calendar size={20} />
+          <div className="rounded-[18px] bg-[#FFFFFF] border border-[#DDE2DD] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-8 h-8 rounded-full bg-[#FAF3E8] text-[#C58A45] flex items-center justify-center shrink-0 mt-0.5">
+                <Calendar size={16} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-white">Google Calendar</h4>
-                  {isConnected && (
-                    <span className="badge bg-emerald-500/20 text-emerald-300 text-[10px]">
-                      Connected
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">
-                  Read-only access to meetings, workouts, and learning events to observe schedule consistency.
-                </p>
-                {calConn?.lastSyncAt && (
-                  <span className="text-[10px] text-slate-500 block mt-1">
-                    Last synced: {new Date(calConn.lastSyncAt).toLocaleString()} ({calConn.itemCount} items)
+                  <h4 className="font-heading font-semibold text-sm text-[#1D2421]">
+                    Google Calendar
+                  </h4>
+                  <span className={`font-mono text-[9.5px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    isConnected ? 'text-[#3E8064] bg-[#EDF7F2]' : 'text-[#8A938E] bg-[#F1F2EE]'
+                  }`}>
+                    {isConnected ? 'Connected' : 'Offline'}
                   </span>
-                )}
+                </div>
+                <p className="text-xs text-[#66706B] mt-1 leading-relaxed">
+                  Read-only cadence extraction for focus blocks, workouts, and meetings to identify scheduling drift and recovery patterns.
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
               <button
                 onClick={handleCalendarSync}
                 disabled={isSyncing}
-                className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                className="rounded-full bg-[#355C4A] text-white text-xs font-medium px-4 py-2 hover:bg-[#284738] transition flex items-center gap-1.5 shadow-xs disabled:opacity-40"
               >
-                <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-                <span>{isSyncing ? 'Syncing...' : 'Sync Calendar'}</span>
+                <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+                <span>{isSyncing ? 'Observing...' : 'Sync Now'}</span>
               </button>
 
               {isConnected && (
                 <button
                   onClick={handleDeleteCalendarData}
-                  className="btn-secondary text-xs py-1.5 px-3 text-slate-400 hover:text-red-300"
-                  title="Delete calendar-derived events without deleting reflections"
+                  className="rounded-full bg-[#FAF9F5] border border-[#DDE2DD] text-[#8A938E] hover:text-[#A95C58] text-xs font-medium px-3 py-2 transition"
+                  title="Remove calendar observations"
                 >
-                  <Trash2 size={13} />
+                  Clear
                 </button>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Danger Zone: Complete Data Erasure */}
-      <div className="card border-red-900/40 bg-red-950/10">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-red-400 mb-1 font-bold text-sm">
-              <ShieldAlert size={18} />
-              <span>Right to Erasure & Complete Account Data Deletion</span>
+      {/* Sovereign Erasure Zone */}
+      <section className="pt-6 border-t border-[#DDE2DD]">
+        <div className="p-6 rounded-[22px] bg-[#FAF9F5] border border-[#DDE2DD] flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={15} className="text-[#A95C58]" />
+              <h3 className="font-editorial text-base text-[#1D2421] font-medium">
+                Complete Personal Data Purge
+              </h3>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-              Permanently delete all your reflections, life events, conversation history, goals, turning points, and generated snapshots from Cloud Firestore. This operation cannot be undone.
+            <p className="text-xs text-[#66706B] leading-relaxed max-w-xl">
+              Permanently and irreversibly erase your entire Life Observatory record from Cloud Firestore: all written reflections, turning points, longitudinal model snapshots, and companion dialogue.
             </p>
           </div>
 
           <button
             onClick={handleDeleteAllData}
-            className="btn-danger text-xs whitespace-nowrap self-start"
+            className="rounded-full border border-[#A95C58]/40 text-[#A95C58] hover:bg-[#A95C58] hover:text-white transition text-xs font-medium px-5 py-2.5 whitespace-nowrap self-start sm:self-auto shrink-0"
           >
-            Delete All My Data
+            Erase All Personal Data
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
