@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { LifeInsight, DOMAIN_CONFIGS } from '../types';
 import { EvidenceModal } from './EvidenceModal';
 
@@ -13,7 +13,7 @@ const clean = (s?: string | null): string =>
     .replace(/[*_`#>]+/g, '')
     .replace(/\bundefined\b|\bnull\b/gi, '');
 
-// Format any embedded ISO dates and awkward date ranges into readable editorial text
+// Format embedded ISO dates into readable editorial text
 const formatHumanDates = (text: string): string => {
   const formatted = text.replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y, m, d) => {
     const date = new Date(Number(y), Number(m) - 1, Number(d));
@@ -27,19 +27,43 @@ const formatHumanDates = (text: string): string => {
 export const InvisibleProgressCard: React.FC<InvisibleProgressCardProps> = ({ insight }) => {
   const [showEvidence, setShowEvidence] = useState(false);
 
-  const title = formatHumanDates(clean(insight?.title) || 'Gradual progress visible in career');
-  const priorState = clean(insight?.priorState) || 'Inconsistent starts and sporadic attempts';
-  const currentState = clean(insight?.currentState) || 'Consistent, completed daily activity';
-  const explanation = formatHumanDates(
-    clean(insight?.text) ||
-    clean(insight?.explanation) ||
-    'Between Jun 13, 2026 and Sep 5, 2026, evidence shows a sustained upward trajectory in career. What may have felt like slow individual days has accumulated into noticeable consistency.'
-  );
-  const timeframe = formatHumanDates(clean(insight?.timeframe) || 'Observed across 6 weeks');
+  // If no invisible progress detected yet, render an authentic, encouraging observation state
+  if (!insight) {
+    return (
+      <section
+        className="relative rounded-[24px] bg-[#EFF3EE] border border-[#D9E3D9] p-7 sm:p-10 transition shadow-2xs"
+        aria-label="Discovery: You May Not Have Noticed This"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2 h-2 rounded-full bg-[#355C4A]" />
+          <span className="font-mono text-[10.5px] tracking-[0.14em] uppercase text-[#355C4A] font-semibold">
+            Discovery · Longitudinal Momentum
+          </span>
+        </div>
 
-  const domainIds =
-    (insight?.domainIds && insight.domainIds.length ? insight.domainIds : null) ||
-    ((insight as any)?.domainId ? [(insight as any).domainId] : ['career', 'learning', 'health']);
+        <h2 className="font-editorial text-[1.85rem] sm:text-[2.2rem] leading-[1.15] text-[#1D2421] max-w-2xl font-normal">
+          Quiet shifts reveal themselves over time.
+        </h2>
+
+        <p className="text-[15px] sm:text-[16px] text-[#4F5A55] leading-relaxed max-w-2xl mt-3 font-light">
+          Most meaningful growth happens too gradually to notice day to day. As you record reflections or connect your calendar, Life Observatory continuously analyzes cumulative patterns to surface subtle breakthroughs you might otherwise miss.
+        </p>
+
+        <div className="mt-6 pt-5 border-t border-[#D9E3D9] flex items-center gap-2 text-xs text-[#66706B] font-mono">
+          <Sparkles size={13} className="text-[#355C4A]" />
+          <span>Awaiting multi-session activity to establish baseline</span>
+        </div>
+      </section>
+    );
+  }
+
+  const title = formatHumanDates(clean(insight.title) || 'Gradual progress observed');
+  const priorState = clean(insight.priorState) || 'Inconsistent starts and sporadic attempts';
+  const currentState = clean(insight.currentState) || 'Consistent, completed daily activity';
+  const explanation = formatHumanDates(clean(insight.text) || clean(insight.explanation) || clean(insight.summary) || '');
+  const timeframe = formatHumanDates(clean(insight.timeframe) || 'Observed across weeks');
+
+  const domainIds = (insight.domainIds && insight.domainIds.length ? insight.domainIds : null) || ['personal'];
   const primaryDomain = (DOMAIN_CONFIGS as any)[domainIds[0]] || DOMAIN_CONFIGS.career;
 
   return (
@@ -62,15 +86,17 @@ export const InvisibleProgressCard: React.FC<InvisibleProgressCardProps> = ({ in
         </div>
 
         {/* The Discovery Headline */}
-        <h1 className="font-editorial text-[2.1rem] sm:text-[2.75rem] leading-[1.08] tracking-[-0.02em] text-[#1D2421] max-w-3xl">
+        <h1 className="font-editorial text-[2.1rem] sm:text-[2.75rem] leading-[1.08] tracking-[-0.02em] text-[#1D2421] max-w-3xl font-normal">
           {title}
         </h1>
 
-        <p className="text-[15.5px] sm:text-[16.5px] text-[#343F38] leading-relaxed max-w-2xl mt-4 font-light">
-          {explanation}
-        </p>
+        {explanation && (
+          <p className="text-[15.5px] sm:text-[16.5px] text-[#343F38] leading-relaxed max-w-2xl mt-4 font-light">
+            {explanation}
+          </p>
+        )}
 
-        {/* Then → Now Shift Asymmetry — Open Editorial Comparison */}
+        {/* Then → Now Shift Comparison */}
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1.25fr] gap-5 sm:gap-8 items-center my-7 py-6 border-y border-[#D9E3D9]">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
@@ -103,63 +129,37 @@ export const InvisibleProgressCard: React.FC<InvisibleProgressCardProps> = ({ in
           </div>
         </div>
 
-        {/* Domains touched + Evidence provenance */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-          <div className="flex items-center gap-2 flex-wrap text-xs text-[#66706B]">
-            <span className="font-mono text-[10px] uppercase text-[#8A938E] mr-1">
-              Domains Touched:
+        {/* Provenance Footer */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+          <div className="flex items-center gap-2.5">
+            <span 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: primaryDomain.color }} 
+            />
+            <span className="font-mono text-[11px] text-[#66706B]">
+              Primary Domain: <strong className="font-semibold text-[#1D2421]">{primaryDomain.name}</strong>
             </span>
-            {domainIds.slice(0, 3).map((d: string, idx: number) => {
-              const cfg = (DOMAIN_CONFIGS as any)[d] || primaryDomain;
-              return (
-                <React.Fragment key={d}>
-                  <span className="inline-flex items-center gap-1.5 font-medium text-[#343F38]">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
-                    {cfg.name}
-                  </span>
-                  {idx < Math.min(domainIds.length, 3) - 1 && <span className="text-[#8A938E]/50">·</span>}
-                </React.Fragment>
-              );
-            })}
           </div>
 
-          <button
-            onClick={() => setShowEvidence(true)}
-            className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#355C4A] bg-[#FFFFFF] hover:bg-[#FAF9F5] border border-[#D9E3D9] px-4 py-2 rounded-full transition-all shadow-2xs hover:shadow-xs"
-          >
-            <ShieldCheck size={15} className="text-[#355C4A]" />
-            <span>See the evidence</span>
-          </button>
+          {insight.evidence && insight.evidence.length > 0 && (
+            <button
+              onClick={() => setShowEvidence(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FFFFFF] hover:bg-[#F7F6F2] border border-[#D9E3D9] text-[#1D2421] text-xs font-mono transition shadow-2xs"
+            >
+              <ShieldCheck size={13} className="text-[#355C4A]" />
+              <span>Inspect {insight.evidence.length} supporting signals</span>
+            </button>
+          )}
         </div>
       </section>
 
-      {showEvidence && (
+      {showEvidence && insight.evidence && (
         <EvidenceModal
-          isOpen={true}
+          isOpen={showEvidence}
           onClose={() => setShowEvidence(false)}
           title={title}
           explanation={explanation}
-          evidence={
-            insight?.evidence && insight.evidence.length
-              ? insight.evidence
-              : [
-                  {
-                    sourceType: 'user_reflection',
-                    sourceRef: 'ref_35d',
-                    summary: 'Completed 35 consecutive days of deliberate practice and published working prototype',
-                    occurredAt: new Date(Date.now() - 2 * 86400000).toISOString(),
-                    confidence: 0.96,
-                  },
-                  {
-                    sourceType: 'user_reflection',
-                    sourceRef: 'ref_mod',
-                    summary: 'Built systems-design module without breaking morning routine cadence',
-                    occurredAt: new Date(Date.now() - 28 * 86400000).toISOString(),
-                    confidence: 0.92,
-                  },
-                ]
-          }
-          confidence={insight?.confidence || 'high'}
+          evidence={insight.evidence}
         />
       )}
     </>

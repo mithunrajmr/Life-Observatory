@@ -29,6 +29,10 @@ export function generateInsightFingerprint(
  * Insight Engine (Layer C):
  * Evaluates eligibility, deduplicates against existing records,
  * and synthesizes evidence-backed insights using Gemini.
+ * Strictly adheres to:
+ * - Never manufacture an insight when evidence is insufficient.
+ * - Every insight links back to verifiable evidence with provenance.
+ * - Clear explanations of what the system observes and why.
  */
 export async function synthesizeProactiveInsights(
   uid: string,
@@ -49,6 +53,11 @@ export async function synthesizeProactiveInsights(
   const eventsSnap = await eventsCol.get();
   const allEvents: LifeEvent[] = [];
   eventsSnap.forEach(d => allEvents.push(d.data() as LifeEvent));
+
+  // If the user has zero or negligible recorded events, do NOT manufacture insights
+  if (allEvents.length < 3) {
+    return activeInsights;
+  }
 
   const newInsights: LifeInsight[] = [];
 
@@ -76,7 +85,7 @@ export async function synthesizeProactiveInsights(
     existingFingerprints.add(whatChanged.fingerprint);
   }
 
-  // 3. EVALUATE DRIFT
+  // 3. EVALUATE GOAL DRIFT
   const driftList = await evaluateGoalDrift(uid);
   for (const drift of driftList) {
     if (drift.driftDetected) {
@@ -104,7 +113,6 @@ export async function synthesizeProactiveInsights(
           ],
           createdAt: new Date().toISOString(),
         };
-        await insightsCol.doc(driftInsight.id).set(driftInsight);
         newInsights.push(driftInsight);
         existingFingerprints.add(fp);
       }
@@ -116,7 +124,6 @@ export async function synthesizeProactiveInsights(
     await insightsCol.doc(ins.id).set(ins);
   }
 
-  // Return combined list sorted newest first
   return [...newInsights, ...activeInsights].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -125,9 +132,9 @@ export async function synthesizeProactiveInsights(
 /**
  * Detects Invisible Progress:
  * Positive gradual change that is cumulative and difficult to notice day to day.
- * Must pass strict eligibility gate:
+ * Strict eligibility:
  * - At least 4 distinct events in the domain
- * - Sustained positive trend
+ * - Sustained upward trend
  * - Prior vs Current state difference
  */
 async function detectInvisibleProgress(
@@ -141,14 +148,16 @@ async function detectInvisibleProgress(
   for (const domainId of domainKeys) {
     const dState = snapshot.domainStates[domainId];
     if (dState.direction !== 'up' && dState.direction !== 'sustained_up') continue;
-    if (dState.eventCount < 3) continue; // Strict eligibility: not enough evidence
+    if (dState.eventCount < 3) continue;
 
     const fp = generateInsightFingerprint('invisible_progress', [domainId], snapshot.period);
-    if (existingFingerprints.has(fp)) continue; // Deduplication suppression
+    if (existingFingerprints.has(fp)) continue;
 
     const domainEvents = allEvents
       .filter(e => e.domainIds.includes(domainId))
       .sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
+
+    if (domainEvents.length < 3) continue;
 
     const firstHalf = domainEvents.slice(0, Math.floor(domainEvents.length / 2));
     const secondHalf = domainEvents.slice(Math.floor(domainEvents.length / 2));
@@ -173,19 +182,20 @@ async function detectInvisibleProgress(
       if (evidenceItems.length >= 3) break;
     }
 
-    // Generate natural synthesis using Gemini
-    let aiSummary = `Your activity in ${domainId} has shifted from intermittent intent to consistent, completed sessions.`;
-    let aiExplanation = `Across the last ${snapshot.period.from} to ${snapshot.period.to}, evidence shows a sustained upward trajectory in ${domainId}. What may have felt like slow individual days has accumulated into noticeable consistency.`;
+    let aiSummary = `Your activity in ${domainId} has shifted from intermittent intent to consistent completed sessions.`;
+    let aiExplanation = `Across the period from ${snapshot.period.from} to ${snapshot.period.to}, evidence shows a sustained upward trajectory in ${domainId}. What may have felt like slow individual days has accumulated into noticeable consistency.`;
+    let priorState = 'Sporadic starts and intent';
+    let currentState = 'Consistent sustained activity';
 
     try {
       const prompt = `
-Synthesize an "Invisible Progress" insight for the user.
+Synthesize an "Invisible Progress" insight for the user based strictly on the following evidence:
 Domain: ${domainId}
 Period: ${snapshot.period.from} to ${snapshot.period.to}
-Prior events summary: ${firstHalf.map(e => e.title).join('; ') || 'Minimal activity'}
-Recent events summary: ${secondHalf.map(e => e.title).join('; ')}
+Prior events: ${firstHalf.map(e => e.title).join('; ') || 'Minimal activity'}
+Recent events: ${secondHalf.map(e => e.title).join('; ')}
 
-Tone: Warm, calm, honest, analytical. Do not use fake cheerleading or excessive exclamation marks. Do not claim to be human.
+Tone: Warm, calm, honest, analytical. Do not use fake cheerleading.
 Output valid JSON:
 {
   "title": "Short compelling headline (max 10 words)",
@@ -201,27 +211,25 @@ Output valid JSON:
       });
 
       if (result?.title && result?.summary) {
-        aiSummary = result.summary;
-        aiExplanation = result.explanation;
         return {
           id: `ins_${Date.now()}_${domainId}`,
           userId: uid,
           type: 'invisible_progress',
           title: result.title,
-          summary: aiSummary,
-          explanation: aiExplanation,
+          summary: result.summary,
+          explanation: result.explanation || aiExplanation,
           domainIds: [domainId],
           fingerprint: fp,
           period: snapshot.period,
           confidence: dState.confidence,
           evidence: evidenceItems,
-          priorState: result.priorState || 'Sporadic baseline',
-          currentState: result.currentState || 'Consistent sustained activity',
+          priorState: result.priorState || priorState,
+          currentState: result.currentState || currentState,
           createdAt: new Date().toISOString(),
         };
       }
     } catch {
-      // Use deterministic fallback
+      // Graceful fallback to deterministic synthesis
     }
 
     return {
@@ -236,8 +244,8 @@ Output valid JSON:
       period: snapshot.period,
       confidence: dState.confidence,
       evidence: evidenceItems,
-      priorState: 'Inconsistent starts',
-      currentState: 'Consistent completed activity',
+      priorState,
+      currentState,
       createdAt: new Date().toISOString(),
     };
   }
@@ -255,16 +263,16 @@ async function evaluateWhatChanged(
   allEvents: LifeEvent[],
   existingFingerprints: Set<string>
 ): Promise<LifeInsight | null> {
-  const fp = generateInsightFingerprint('what_changed', ['career', 'learning', 'health'], snapshot.period);
-  if (existingFingerprints.has(fp)) return null;
-
   const domainKeys = Object.keys(snapshot.domainStates) as DomainId[];
   const changingDomains = domainKeys.filter(d => {
     const s = snapshot.domainStates[d];
-    return s.direction === 'up' || s.direction === 'down' || s.direction === 'sustained_up' || s.direction === 'sustained_down';
+    return (s.direction === 'up' || s.direction === 'down' || s.direction === 'sustained_up' || s.direction === 'sustained_down') && s.eventCount >= 2;
   });
 
   if (changingDomains.length === 0) return null;
+
+  const fp = generateInsightFingerprint('what_changed', changingDomains, snapshot.period);
+  if (existingFingerprints.has(fp)) return null;
 
   const evidenceItems: EvidenceItem[] = allEvents.slice(-4).map(e => ({
     sourceType: e.source.type === 'calendar' ? 'calendar' : 'user_reflection',
@@ -278,13 +286,44 @@ async function evaluateWhatChanged(
     .map(d => `${d.toUpperCase()}: ${snapshot.domainStates[d].direction}`)
     .join(', ');
 
+  let title = `Key Transitions in Your Observatory`;
+  let summary = `Observable shifts across ${changingDomains.join(', ')} over the recent period.`;
+  let explanation = `Comparing the earlier half of this window against recent weeks shows distinct movement: ${shiftsSummary}. Inspect individual domain lines to review supporting events.`;
+
+  try {
+    const prompt = `
+Synthesize a "What Changed" comparative narrative across domains:
+Period: ${snapshot.period.from} to ${snapshot.period.to}
+Changing Domains: ${shiftsSummary}
+Recent Events: ${allEvents.slice(-6).map(e => `${e.title} (${e.domainIds.join(',')})`).join('; ')}
+
+Output JSON:
+{
+  "title": "Short editorial headline (max 10 words)",
+  "summary": "1-2 sentences summarizing the change arc",
+  "explanation": "2-3 sentences explaining the trade-offs and momentum"
+}
+`;
+    const res: any = await generateGeminiJson({
+      systemInstruction: 'You are the Insight Engine for Life Observatory.',
+      prompt,
+    });
+    if (res?.title && res?.summary) {
+      title = res.title;
+      summary = res.summary;
+      if (res.explanation) explanation = res.explanation;
+    }
+  } catch {
+    // Deterministic fallback
+  }
+
   return {
     id: `ins_wc_${Date.now()}`,
     userId: uid,
     type: 'what_changed',
-    title: `Key Transitions in Your Observatory`,
-    summary: `Observable shifts across ${changingDomains.join(', ')} over the recent period.`,
-    explanation: `Comparing the earlier half of this window against recent weeks shows distinct movement: ${shiftsSummary}. Inspect individual domain lines to review supporting events.`,
+    title,
+    summary,
+    explanation,
     domainIds: changingDomains,
     fingerprint: fp,
     period: snapshot.period,

@@ -72,7 +72,7 @@ export async function computeLifeHorizon(
         const sentimentWeight = 
           ev.sentiment === 'positive' ? 0.35 :
           ev.sentiment === 'negative' ? -0.35 :
-          ev.sentiment === 'mixed' ? 0.05 : 0.1;
+          ev.sentiment === 'mixed' ? 0.05 : 0.0;
 
         const intensityWeight = (ev.intensity || 2) * 0.2;
         const confidenceWeight = ev.confidence || 0.8;
@@ -189,7 +189,8 @@ export async function detectTurningPoints(
   const existingMap = new Map<string, TurningPoint>();
   existingDocs.forEach(d => {
     const tp = d.data() as TurningPoint;
-    existingMap.set(tp.eventId, tp);
+    const key = tp.eventId || tp.id;
+    if (key) existingMap.set(key, tp);
   });
 
   const turningPoints: TurningPoint[] = [];

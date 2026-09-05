@@ -1,0 +1,21 @@
+.gcloudignore
+.git
+.gitignore
+
+# Dependencies (Docker build installs them inside container)
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build artifacts (Docker multi-stage builds from source)
+dist/
+client/dist/
+server/dist/
+
+# Test assets & QA media
+qa/
+*.log
+
+# Ensure frontend public branding assets (logos, favicons) are never excluded
+!client/public/
+!client/public/**

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, LogOut, LogIn, Menu, X, ChevronDown } from 'lucide-react';
 import { User } from 'firebase/auth';
+import brandLogo from '../assets/logo.png';
 
 interface HeaderProps {
   user: User | null;
@@ -38,8 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
     day: 'numeric',
   });
 
-  const displayName = user?.displayName || 'Alex';
-  const firstName = displayName.split(' ')[0] || 'Alex';
+  const displayName = user?.displayName || (user?.email ? user.email.split('@')[0] : 'Observer');
+  const firstName = displayName.split(' ')[0] || 'Observer';
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +62,10 @@ export const Header: React.FC<HeaderProps> = ({
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         )}
+
+        <div className="md:hidden flex items-center gap-1.5 shrink-0">
+          <img src={brandLogo} alt="Life Observatory" className="w-6 h-6 object-contain" />
+        </div>
 
         {user && (
           <form onSubmit={handleSearchSubmit} className="relative w-full max-w-[340px]">

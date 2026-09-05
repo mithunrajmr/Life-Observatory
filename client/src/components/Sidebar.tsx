@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { TabType } from './Navbar';
+import brandLogo from '../assets/logo.png';
 
 interface SidebarProps {
   currentTab: TabType;
@@ -30,9 +31,12 @@ const primaryNav: Array<{ id: TabType; label: string; icon: React.ReactNode; hin
 export const Sidebar: React.FC<SidebarProps> = ({
   currentTab,
   onSelectTab,
+  onOpenCheckIn: _onOpenCheckIn,
   className = '',
   onCloseMobile,
 }) => {
+  const [logoError, setLogoError] = React.useState(false);
+
   const handleSelect = (tab: TabType) => {
     onSelectTab(tab);
     if (onCloseMobile) onCloseMobile();
@@ -40,28 +44,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className={`w-[248px] bg-[#F7F6F2] border-r border-[#DDE2DD] flex flex-col h-screen sticky top-0 overflow-y-auto select-none ${className}`}
+      className={`w-64 bg-[#FAF9F5] border-r border-[#DDE2DD] flex flex-col justify-between h-full select-none ${className}`}
+      aria-label="Sidebar navigation"
     >
-      {/* Brand */}
-      <div className="px-5 pt-6 pb-5">
-        <button
-          onClick={() => handleSelect('observatory')}
-          className="flex items-center gap-3 group text-left w-full"
-          aria-label="Life Observatory — home"
-        >
-          <div className="w-9 h-9 rounded-xl bg-[#355C4A] text-[#F7F6F2] flex items-center justify-center shrink-0 group-hover:bg-[#284738] transition-colors">
-            <Telescope size={18} strokeWidth={1.9} />
-          </div>
-          <div className="min-w-0">
-            <span className="font-heading font-bold text-[15px] text-[#1D2421] block leading-none">
-              Life Observatory
-            </span>
-            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#8A938E] block mt-1.5">
-              Observing since 2026
-            </span>
-          </div>
-        </button>
-      </div>
+      <div>
+        {/* Brand */}
+        <div className="px-5 pt-6 pb-5">
+          <button
+            onClick={() => handleSelect('observatory')}
+            className="flex items-center gap-3 group text-left w-full"
+            aria-label="Life Observatory — home"
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#FFFFFF] border border-[#DDE2DD] shadow-2xs flex items-center justify-center shrink-0 overflow-hidden p-1">
+              {!logoError ? (
+                <img 
+                  src={brandLogo} 
+                  alt="Life Observatory Logo" 
+                  className="w-full h-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <Telescope size={18} className="text-[#355C4A]" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <span className="font-heading font-bold text-[15px] text-[#1D2421] block leading-none">
+                Life Observatory
+              </span>
+              <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#8A938E] block mt-1.5">
+                Observing since 2026
+              </span>
+            </div>
+          </button>
+        </div>
 
       <div className="h-px bg-[#DDE2DD] mx-5" />
 
@@ -98,6 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
+      </div>
 
       {/* Footer: data & privacy */}
       <div className="px-3 pb-5 pt-2">

@@ -104,6 +104,11 @@ service cloud.firestore {
       }
     }
 
+    // Explicitly deny all client access to server-managed user credentials, tokens, and sync state
+    match /user_credentials/{document=**} {
+      allow read, write: if false;
+    }
+
     // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;

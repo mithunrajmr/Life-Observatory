@@ -67,3 +67,32 @@ export async function getGeminiApiKey(): Promise<string> {
     return '';
   }
 }
+
+let cachedOAuthSecret: string | null = null;
+
+export async function getGoogleOAuthCredentials(): Promise<{ clientId: string; clientSecret: string; redirectUri: string }> {
+  const clientId = ENV.GOOGLE_CLIENT_ID;
+  const redirectUri = ENV.GOOGLE_REDIRECT_URI;
+  let clientSecret = ENV.GOOGLE_CLIENT_SECRET;
+
+  if (cachedOAuthSecret) {
+    return { clientId, clientSecret: cachedOAuthSecret, redirectUri };
+  }
+
+  if (ENV.isProduction && ENV.GCP_PROJECT_ID && !clientSecret) {
+    try {
+      const client = new SecretManagerServiceClient();
+      const name = `projects/${ENV.GCP_PROJECT_ID}/secrets/${ENV.SECRET_NAME_GOOGLE_CLIENT_SECRET}/versions/latest`;
+      const [version] = await client.accessSecretVersion({ name });
+      const payload = version.payload?.data?.toString();
+      if (payload) {
+        clientSecret = payload.trim();
+        cachedOAuthSecret = clientSecret;
+      }
+    } catch (err: any) {
+      console.warn('[Security] Could not retrieve GOOGLE_CLIENT_SECRET from Secret Manager:', err.message);
+    }
+  }
+
+  return { clientId, clientSecret, redirectUri };
+}

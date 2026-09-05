@@ -141,14 +141,26 @@ export const LifeHorizon: React.FC<LifeHorizonProps> = ({
 
   // Data-derived masthead headline
   const headline = useMemo(() => {
-    if (!series.length) return { lead: 'Your horizon', sub: 'Reflections will shape the view over time.' };
+    if (!series.length) return { lead: 'Your horizon', sub: 'Reflections and connected activity will shape the view over time.' };
     const leader = series.reduce((a, b) => (b.end > a.end ? b : a));
     const rising = series.filter((s) => s.end > 0.03).length;
+    const declining = series.filter((s) => s.end < -0.03).length;
+    const timeframeText = snapshot?.period?.from && snapshot?.period?.to 
+      ? `From ${snapshot.period.from} to ${snapshot.period.to}`
+      : 'Across the observed timeframe';
+
+    let trajectoryNote = 'steady equilibrium across domains';
+    if (rising > declining) {
+      trajectoryNote = `${rising} of ${series.length} domains bending upward`;
+    } else if (declining > rising) {
+      trajectoryNote = `${declining} of ${series.length} domains reflecting downward strain`;
+    }
+
     return {
       lead: `A season shaped by ${leader.label.toLowerCase()}.`,
-      sub: `Across twelve weeks, ${rising} of ${series.length} domains bent upward — steady gains following a late-July dip.`,
+      sub: `${timeframeText}, with ${trajectoryNote}.`,
     };
-  }, [series]);
+  }, [series, snapshot]);
 
   // ── Loading skeleton ──
   if (isLoading && !snapshot) {

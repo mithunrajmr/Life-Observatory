@@ -79,7 +79,7 @@ export type EventType =
 export type EventSentiment = 'positive' | 'neutral' | 'negative' | 'mixed';
 
 export interface EventSource {
-  type: 'reflection' | 'calendar' | 'conversation' | 'direct_entry';
+  type: 'reflection' | 'calendar' | 'gmail' | 'drive' | 'conversation' | 'direct_entry' | 'other';
   ref: string;
   externalId?: string;
 }
@@ -99,6 +99,7 @@ export interface LifeEvent {
   intensity: number; // 1 - 5
   isTurningPointCandidate: boolean;
   contentHash?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface Reflection {
@@ -170,14 +171,18 @@ export interface Outcome {
 export interface TurningPoint {
   id: string;
   userId: string;
-  eventId: string;
+  eventId?: string;
   title: string;
   description: string;
   occurredAt: string;
   status: 'candidate' | 'confirmed' | 'rejected';
   trajectoryShiftSummary: string;
-  evidenceRefs: string[];
+  evidenceRefs?: string[];
   domains: DomainId[];
+  domainId?: DomainId;
+  timestamp?: string;
+  evidence?: any[];
+  impact?: 'positive' | 'negative' | 'neutral';
 }
 
 export type TrendDirection = 
@@ -193,7 +198,7 @@ export type TrendDirection =
 export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'insufficient_evidence';
 
 export interface EvidenceItem {
-  sourceType: 'user_reflection' | 'calendar' | 'conversation' | 'user_correction';
+  sourceType: 'user_reflection' | 'calendar' | 'gmail' | 'drive' | 'conversation' | 'user_correction' | 'other';
   sourceRef: string;
   occurredAt: string;
   summary: string;
@@ -252,11 +257,14 @@ export interface LifeSnapshot {
 export interface Connection {
   id: string;
   userId: string;
-  provider: 'google_calendar' | 'local_demo';
-  status: 'connected' | 'disconnected';
+  provider: 'google_calendar' | 'gmail' | 'google_drive' | 'local_demo';
+  status: 'connected' | 'disconnected' | 'syncing' | 'sync_failed' | 'revoked' | 'needs_reauthorization';
   scopes: string[];
-  lastSyncAt: string;
+  lastSyncAt: string | null;
   itemCount: number;
+  lastError?: string | null;
+  connectedAt?: string;
+  disconnectedAt?: string;
 }
 
 export interface ChatMessage {

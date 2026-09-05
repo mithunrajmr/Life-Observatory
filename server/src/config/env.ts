@@ -20,9 +20,15 @@ export const ENV = {
 
   // Secret name in Secret Manager
   SECRET_NAME_GEMINI_KEY: process.env.SECRET_NAME_GEMINI_KEY || 'GEMINI_API_KEY',
+  SECRET_NAME_GOOGLE_CLIENT_SECRET: process.env.SECRET_NAME_GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET',
 
   // Local development API key (strictly local fallback)
   LOCAL_GEMINI_API_KEY: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+
+  // Google OAuth 2.0 Credentials (for Workspace integrations: Calendar, Gmail, Drive)
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:8080/api/connections/google/callback',
 
   // Client static assets path when serving combined container
   CLIENT_DIST_PATH: process.env.CLIENT_DIST_PATH || '../client/dist',

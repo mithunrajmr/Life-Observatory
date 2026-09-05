@@ -65,33 +65,52 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
   const uid = req.user!.uid;
 
   try {
-    const reflectionsSnap = await getUserSubcollection(uid, 'reflections')
-      .orderBy('occurredAt', 'desc')
-      .limit(30)
-      .get();
-
-    const reflections: Reflection[] = [];
-    reflectionsSnap.forEach(doc => {
-      reflections.push(doc.data() as Reflection);
-    });
-
-    res.json({ reflections });
-  } catch {
-    // If indexing is pending, fallback to simple fetch
+    let reflections: Reflection[] = [];
     try {
+      const reflectionsSnap = await getUserSubcollection(uid, 'reflections')
+        .orderBy('occurredAt', 'desc')
+        .limit(30)
+        .get();
+      reflectionsSnap.forEach(doc => {
+        reflections.push(doc.data() as Reflection);
+      });
+    } catch {
       const snap = await getUserSubcollection(uid, 'reflections').get();
-      const reflections: Reflection[] = [];
       snap.forEach(d => reflections.push(d.data() as Reflection));
       reflections.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
-      res.json({ reflections });
-    } catch {
-      res.status(500).json({
-        error: {
-          code: 'FETCH_REFLECTIONS_FAILED',
-          message: 'Unable to retrieve reflections.',
-        },
+    }
+
+    // Fetch reflection-sourced events to populate signals and domain
+    const eventsSnap = await getUserSubcollection(uid, 'events')
+      .where('source.type', '==', 'reflection')
+      .get()
+      .catch(() => null);
+
+    const eventsByRef = new Map<string, any[]>();
+    if (eventsSnap) {
+      eventsSnap.forEach(d => {
+        const ev = d.data();
+        const refId = ev.source?.ref;
+        if (refId) {
+          if (!eventsByRef.has(refId)) eventsByRef.set(refId, []);
+          eventsByRef.get(refId)!.push(ev);
+        }
       });
     }
+
+    const enriched = reflections.map(r => ({
+      ...r,
+      events: eventsByRef.get(r.id) || [],
+    }));
+
+    res.json({ reflections: enriched });
+  } catch {
+    res.status(500).json({
+      error: {
+        code: 'FETCH_REFLECTIONS_FAILED',
+        message: 'Unable to retrieve reflections.',
+      },
+    });
   }
 });
 

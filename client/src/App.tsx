@@ -14,18 +14,20 @@ import { PredictionTracker } from './components/PredictionTracker';
 import { ConnectionsSettings } from './components/ConnectionsSettings';
 import { LandingView } from './components/LandingView';
 import { JournalView } from './components/JournalView';
+import { FirstRunOnboarding } from './components/FirstRunOnboarding';
 import { TabType } from './components/Navbar';
 import { 
   auth, 
   onAuthStateChanged, 
-  signInWithGoogle, 
+  getRedirectResult,
   signInAsDemo, 
   signOutUser 
 } from './services/firebase';
 import { api } from './services/api';
-import { LifeSnapshot, LifeInsight, TurningPoint, Goal, Prediction } from './types';
+import { LifeSnapshot, LifeInsight, TurningPoint, Goal, Prediction, Connection } from './types';
 import { User } from 'firebase/auth';
 import { Telescope, MessageSquare, GitCommit, Sparkles, BookOpen } from 'lucide-react';
+import brandLogo from './assets/logo.png';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -35,48 +37,120 @@ export const App: React.FC = () => {
   const [turningPoints, setTurningPoints] = useState<TurningPoint[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [initialChatPrompt, setInitialChatPrompt] = useState<string>('');
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const wasSignedOut = sessionStorage.getItem('life_observatory_signed_out') === 'true';
+    // 1. Process Direct Google OAuth callback return parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const authToken = urlParams.get('auth_token');
+    const authEmail = urlParams.get('email');
+    const authName = urlParams.get('name');
+    const authPic = urlParams.get('picture');
+    const authUid = urlParams.get('uid');
+    const authErr = urlParams.get('auth_error');
+
+    if (authErr) {
+      setAuthError(authErr);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (authToken && authUid) {
+      const realUser: any = {
+        uid: authUid,
+        email: authEmail || '',
+        displayName: authName || authEmail || 'Observer',
+        photoURL: authPic || null,
+        getIdToken: async () => authToken,
+      };
+      localStorage.setItem('life_observatory_auth_token', authToken);
+      localStorage.setItem('life_observatory_real_user', JSON.stringify(realUser));
+      setUser(realUser);
+      setAuthError(null);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      loadAllData();
+      return;
+    }
+
+    // Check for stored real user session
+    const storedRealUser = localStorage.getItem('life_observatory_real_user');
+    const storedToken = localStorage.getItem('life_observatory_auth_token');
+    if (storedRealUser && storedToken) {
+      try {
+        const parsed = JSON.parse(storedRealUser);
+        parsed.getIdToken = async () => storedToken;
+        setUser(parsed);
+        setAuthError(null);
+        loadAllData();
+        return;
+      } catch {}
+    }
+
+    // 2. Process Google Sign-In redirect result if browser used Firebase redirect flow
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          setUser(result.user);
+          setAuthError(null);
+          loadAllData();
+        }
+      })
+      .catch((err) => {
+        console.warn('Firebase redirect sign-in note:', err.message);
+      });
+
+    // 3. Observer for Firebase user session
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
+        setAuthError(null);
+        // Check for redirect OAuth return for Workspace integrations
+        const currentParams = new URLSearchParams(window.location.search);
+        const redirectCode = currentParams.get('oauth_code');
+        const redirectState = currentParams.get('oauth_state');
+        if (redirectCode && redirectState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          try {
+            await api.exchangeOAuthCode(redirectCode, redirectState);
+          } catch (err) {
+            console.error('Redirect OAuth exchange failed:', err);
+          }
+        }
         await loadAllData();
-      } else if (!wasSignedOut) {
-        try {
-          const demoUser = await signInAsDemo();
-          setUser(demoUser);
-          await loadAllData();
-        } catch {
+      } else {
+        // Only set user to null if there is no direct Google OAuth session
+        if (!localStorage.getItem('life_observatory_auth_token')) {
+          setUser(null);
           setIsLoading(false);
         }
-      } else {
-        setUser(null);
-        setIsLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const handleSignIn = async () => {
+  const handleSignIn = () => {
     sessionStorage.removeItem('life_observatory_signed_out');
-    try {
-      const u = await signInWithGoogle();
-      setUser(u);
-      await loadAllData();
-    } catch {
-      const demo = await signInAsDemo();
-      setUser(demo);
-      await loadAllData();
-    }
+    localStorage.removeItem('life_observatory_demo_user');
+    setAuthError(null);
+    // Direct Google OAuth flow — rock-solid, zero popup or cookie partitioning issues
+    window.location.href = '/api/auth/google';
+  };
+
+  const handleSignInRedirect = () => {
+    sessionStorage.removeItem('life_observatory_signed_out');
+    localStorage.removeItem('life_observatory_demo_user');
+    setAuthError(null);
+    window.location.href = '/api/auth/google';
   };
 
   const handleDemoSignIn = async () => {
     sessionStorage.removeItem('life_observatory_signed_out');
+    localStorage.removeItem('life_observatory_auth_token');
+    localStorage.removeItem('life_observatory_real_user');
     setIsLoading(true);
     try {
       const demo = await signInAsDemo();
@@ -89,6 +163,9 @@ export const App: React.FC = () => {
 
   const handleSignOut = async () => {
     sessionStorage.setItem('life_observatory_signed_out', 'true');
+    localStorage.removeItem('life_observatory_auth_token');
+    localStorage.removeItem('life_observatory_real_user');
+    localStorage.removeItem('life_observatory_demo_user');
     await signOutUser();
     setUser(null);
     setSnapshot(null);
@@ -97,12 +174,13 @@ export const App: React.FC = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [horizonRes, insightsRes, tpRes, goalsRes, predsRes] = await Promise.all([
+      const [horizonRes, insightsRes, tpRes, goalsRes, predsRes, connRes] = await Promise.all([
         api.getHorizon(12),
         api.getInsights(),
         api.getTurningPoints(),
         api.getGoals(),
         api.getPredictions(),
+        api.getConnections().catch(() => ({ connections: [] })),
       ]);
 
       setSnapshot(horizonRes.snapshot);
@@ -110,6 +188,7 @@ export const App: React.FC = () => {
       setTurningPoints(tpRes.turningPoints || []);
       setGoals(goalsRes.goals || []);
       setPredictions(predsRes.predictions || []);
+      setConnections(connRes.connections || []);
     } catch (err: any) {
       console.warn('Initial data load warning:', err.message);
     } finally {
@@ -169,9 +248,14 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#F7F6F2] text-[#1D2421] flex flex-col font-body antialiased">
-      {!user && !isLoading ? (
+      {!user ? (
         <main className="flex-1">
-          <LandingView onSignIn={handleSignIn} onExploreDemo={handleDemoSignIn} />
+          <LandingView 
+            onSignIn={handleSignIn} 
+            onSignInRedirect={handleSignInRedirect}
+            onExploreDemo={handleDemoSignIn} 
+            authError={authError}
+          />
         </main>
       ) : (
         <div className="flex-1 flex">
@@ -217,10 +301,18 @@ export const App: React.FC = () => {
             />
 
             <main className="flex-1 px-4 sm:px-8 py-6 max-w-7xl w-full mx-auto pb-24 md:pb-12">
+              <FirstRunOnboarding
+                onNavigateToConnections={() => setCurrentTab('connections')}
+                hasActiveConnections={connections.some(c => c.status === 'connected')}
+              />
               {isLoading && !snapshot && (
-                <div className="py-24 text-center text-[#66706B]">
-                  <div className="w-9 h-9 mx-auto mb-3 border-2 border-[#355C4A] border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs font-medium">Opening Life Observatory...</p>
+                <div className="py-24 text-center text-[#66706B] flex flex-col items-center justify-center animate-fade-in">
+                  <div className="w-12 h-12 mb-3 rounded-2xl bg-[#FFFFFF] border border-[#DDE2DD] shadow-xs p-2 flex items-center justify-center animate-pulse">
+                    <img src={brandLogo} alt="Life Observatory" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="w-5 h-5 mb-2 border-2 border-[#355C4A] border-t-transparent rounded-full animate-spin" />
+                  <p className="text-xs font-heading font-medium text-[#1D2421]">Opening Life Observatory…</p>
+                  <p className="text-[11px] text-[#8A938E] mt-0.5">Calibrating your longitudinal horizon</p>
                 </div>
               )}
 
@@ -304,7 +396,12 @@ export const App: React.FC = () => {
                     insights={insights}
                     onTriggerRecompute={handleRefreshObservatory}
                   />
-                  <UpcomingPossibilities onExploreSuggestions={() => setCurrentTab('goals')} />
+                  <UpcomingPossibilities 
+                    goals={goals}
+                    predictions={predictions}
+                    insights={insights}
+                    onExploreSuggestions={() => setCurrentTab('goals')} 
+                  />
                 </div>
               )}
 

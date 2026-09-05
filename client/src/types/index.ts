@@ -121,6 +121,8 @@ export interface LifeEvent {
   sentiment: 'positive' | 'neutral' | 'negative' | 'mixed';
   intensity: number;
   isTurningPointCandidate: boolean;
+  source?: { type: string; ref: string; externalId?: string };
+  metadata?: Record<string, any>;
 }
 
 export interface Reflection {
@@ -181,11 +183,14 @@ export interface Outcome {
 export interface Connection {
   id: string;
   userId: string;
-  provider: 'google_calendar' | 'local_demo';
-  status: 'connected' | 'disconnected';
+  provider: 'google_calendar' | 'gmail' | 'google_drive' | 'local_demo';
+  status: 'connected' | 'disconnected' | 'syncing' | 'sync_failed' | 'revoked' | 'needs_reauthorization';
   scopes: string[];
-  lastSyncAt: string;
+  lastSyncAt: string | null;
   itemCount: number;
+  lastError?: string | null;
+  connectedAt?: string;
+  disconnectedAt?: string;
 }
 
 export interface ChatMessage {

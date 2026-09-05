@@ -3,7 +3,8 @@ import { getIdToken } from './firebase';
 const BASE_URL = '/api';
 
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = await getIdToken();
+  const directToken = localStorage.getItem('life_observatory_auth_token');
+  const token = directToken || await getIdToken();
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
 
@@ -54,6 +55,8 @@ export const api = {
     }),
   getChatHistory: (conversationId?: string) =>
     apiRequest<{ messages: any[] }>(`/chat/history${conversationId ? `?conversationId=${conversationId}` : ''}`),
+  getCompanionContext: () =>
+    apiRequest<{ context: any }>('/chat/companion-context'),
 
   // Insights
   getInsights: () => apiRequest<{ insights: any[] }>('/insights'),
@@ -81,14 +84,41 @@ export const api = {
     apiRequest<{ turningPoint: any }>(`/turning-points/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
 
   // Connections & Privacy
-  getConnections: () => apiRequest<{ connections: any[] }>('/connections'),
-  syncGoogleCalendar: (accessToken?: string) =>
-    apiRequest<{ success: boolean; syncedCount: number; snapshot: any }>('/connections/google_calendar/sync', {
-      method: 'POST',
-      body: JSON.stringify({ accessToken }),
-    }),
+  getConnections: () => 
+    apiRequest<{ connections: any[]; descriptions: any }>('/connections'),
+  
+  getOAuthUrl: (provider: string, redirectUri?: string) =>
+    apiRequest<{ url: string; provider: string }>(
+      `/connections/google/auth-url?provider=${encodeURIComponent(provider)}${redirectUri ? `&redirectUri=${encodeURIComponent(redirectUri)}` : ''}`
+    ),
+
+  exchangeOAuthCode: (code: string, state: string, redirectUri?: string) =>
+    apiRequest<{ success: boolean; provider: string; syncedCount: number; snapshot: any }>(
+      '/connections/google/exchange-code',
+      {
+        method: 'POST',
+        body: JSON.stringify({ code, state, redirectUri }),
+      }
+    ),
+
+  syncProvider: (provider: string) =>
+    apiRequest<{ success: boolean; provider: string; syncedCount: number; snapshot: any }>(
+      `/connections/${encodeURIComponent(provider)}/sync`,
+      { method: 'POST' }
+    ),
+
+  disconnectProvider: (provider: string) =>
+    apiRequest<{ success: boolean; message: string }>(
+      `/connections/${encodeURIComponent(provider)}`,
+      { method: 'DELETE' }
+    ),
+
   deleteConnectionData: (provider: string) =>
-    apiRequest<{ success: boolean }>(`/connections/${provider}/data`, { method: 'DELETE' }),
+    apiRequest<{ success: boolean; message: string; snapshot?: any }>(
+      `/connections/${encodeURIComponent(provider)}/data`,
+      { method: 'DELETE' }
+    ),
+
   deleteAllUserData: () =>
     apiRequest<{ success: boolean; message: string }>('/connections/user/all-data', { method: 'DELETE' }),
 };

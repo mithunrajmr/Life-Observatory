@@ -1,0 +1,10 @@
+# Example Cloud Run Environment Configuration
+# Copy to cloudrun-env.yaml and populate with your GCP Project values.
+# Real credentials are stored in Google Cloud Secret Manager.
+
+GCP_PROJECT_ID: your-gcp-project-id
+USE_CLOUD_FIRESTORE: "true"
+NODE_ENV: production
+GOOGLE_CLIENT_ID: your-oauth-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET: your-oauth-client-secret
+GOOGLE_REDIRECT_URI: https://your-cloud-run-url.run.app/api/connections/google/callback

@@ -617,3 +617,31 @@ export function getUserSubcollection(uid: string, collectionName: string): admin
   // Local development, testing, and evaluator demo mode
   return createMemoryCollectionRef(uid, collectionName) as unknown as admin.firestore.CollectionReference;
 }
+
+/**
+ * Returns a typed subcollection reference under /user_credentials/{uid}/{subcollection}
+ * Strictly isolated on the server. Client rules in firestore.rules unconditionally block
+ * all reads and writes to /user_credentials/**.
+ */
+export function getServerCredentialsSubcollection(
+  uid: string,
+  subcollection: string = 'tokens'
+): admin.firestore.CollectionReference {
+  if (!uid || typeof uid !== 'string') {
+    throw new Error('Invalid UID supplied for server credentials');
+  }
+
+  const isCloudRun = !!process.env.K_SERVICE || process.env.USE_CLOUD_FIRESTORE === 'true';
+
+  if (isCloudRun) {
+    try {
+      const db = getDb();
+      return db.collection('user_credentials').doc(uid).collection(subcollection);
+    } catch (err: any) {
+      console.warn(`[Firestore] Cloud Firestore connection failed for credentials, falling back to memory store: ${err.message}`);
+    }
+  }
+
+  return createMemoryCollectionRef(`_credentials_${uid}`, subcollection) as unknown as admin.firestore.CollectionReference;
+}
+

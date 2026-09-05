@@ -91,23 +91,30 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState(initialPrompt || '');
   const [isLoading, setIsLoading] = useState(false);
+  const [companionContext, setCompanionContext] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadHistory();
+    loadChatData();
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadHistory = async () => {
+  const loadChatData = async () => {
     try {
-      const res = await api.getChatHistory();
-      if (res.messages && res.messages.length > 0) {
+      const [historyRes, contextRes] = await Promise.all([
+        api.getChatHistory(),
+        api.getCompanionContext().catch(() => ({ context: null })),
+      ]);
+
+      setCompanionContext(contextRes.context);
+
+      if (historyRes.messages && historyRes.messages.length > 0) {
         const deduplicated: ChatMessage[] = [];
-        for (let i = 0; i < res.messages.length; i++) {
-          const m = res.messages[i];
+        for (let i = 0; i < historyRes.messages.length; i++) {
+          const m = historyRes.messages[i];
           const prev = deduplicated[deduplicated.length - 1];
           if (prev && prev.role === m.role && prev.content === m.content) {
             continue;
@@ -116,11 +123,21 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
         }
         setMessages(deduplicated);
       } else {
+        const ctx = contextRes.context;
+        const totalRefs = ctx?.totalReflectionsCount || 0;
+        const memories = ctx?.memories || [];
+
+        let welcomeText = "Welcome to Life Observatory. I am your companion for observing how your life is quietly changing.\n\nI don't have enough recorded observations yet to speak to your personal trajectory. As you compose reflections or connect your calendar, I will begin holding your journey in mind.\n\nWhat is on your mind today as you look ahead?";
+
+        if (totalRefs > 0 || memories.length > 0) {
+          welcomeText = `I am holding in mind the arc of your observatory record (${totalRefs} reflection${totalRefs === 1 ? '' : 's'} on file).\n\nWhat is currently on your mind as you look at your trajectory today?`;
+        }
+
         setMessages([
           {
             id: 'welcome_1',
             role: 'model',
-            content: "Hello Alex. I am holding in mind the arc of your reflections across June through September 2026 — including your 35-day learning streak, the July sprint crunch, and the recovery pattern you established in August.\n\nWhat is currently on your mind as you look at your trajectory today?",
+            content: welcomeText,
             timestamp: new Date().toISOString(),
             mode: 'companion',
           },
@@ -150,80 +167,60 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
 
     try {
       const res = await api.sendMessage(userText);
-      setMessages(prev => [...prev, res.reply]);
-    } catch {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `err_${Date.now()}`,
-          role: 'model',
-          content: 'I could not process that thought right now. Please take a quiet moment and try again.',
-          timestamp: new Date().toISOString(),
-          mode: 'companion',
-        },
-      ]);
+      setMessages(prev => [...prev.filter(m => m.id !== optimisticMsg.id), optimisticMsg, res.reply]);
+    } catch (err: any) {
+      const errorMsg: ChatMessage = {
+        id: `err_${Date.now()}`,
+        role: 'model',
+        content: `I encountered an issue processing that: ${err.message || 'Please try again in a moment.'}`,
+        timestamp: new Date().toISOString(),
+        mode: 'companion',
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePromptSuggestion = (text: string) => {
-    setInput(text);
+  const handlePromptSuggestion = (prompt: string) => {
+    setInput(prompt);
   };
 
-  return (
-    <div className="space-y-6 animate-fade-in w-full mb-12">
-      {/* Editorial Page Header */}
-      <div className="border-b border-[#DDE2DD] pb-5">
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#355C4A]" />
-          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-[#355C4A]">
-            Longitudinal Thinking Partner
-          </span>
-        </div>
-        <h1 className="font-editorial text-3xl sm:text-4xl text-[#1D2421] font-normal leading-tight">
-          Reflective Dialogue
-        </h1>
-        <p className="text-[13.5px] text-[#66706B] font-light max-w-xl mt-1.5 leading-relaxed">
-          A calm conversation that remembers your past months, recognizes recurring drift patterns, and helps you notice subtle compounding progress.
-        </p>
-      </div>
+  const memories = companionContext?.memories || [];
+  const intentions = companionContext?.activeIntentions || [];
 
-      {/* Active Longitudinal Memory Grounding Substrate */}
-      <div className="rounded-[20px] bg-[#FAF9F5] border border-[#DDE2DD] p-4 sm:p-5">
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in mb-12">
+      {/* Editorial Longitudinal Context Banner */}
+      <div className="rounded-[22px] bg-[#FAF9F5] border border-[#DDE2DD] p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-[#355C4A] font-semibold">
-              Longitudinal Memory Grounding
-            </span>
-            <span className="h-px w-6 bg-[#DDE2DD]" />
-            <span className="text-[11px] text-[#8A938E] font-mono">
-              Jun 13 – Sep 5, 2026
+            <span className="w-2 h-2 rounded-full bg-[#355C4A]" />
+            <span className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#355C4A] font-semibold">
+              Longitudinal Memory Context
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-[#355C4A] font-mono">
             <Lock size={12} />
-            <span>Client-Isolated Memory</span>
+            <span>User-Isolated Grounding</span>
           </div>
         </div>
 
-        <div className="divide-y sm:divide-y-0 sm:divide-x divide-[#DDE2DD] grid grid-cols-1 sm:grid-cols-3 text-xs pt-2 border-t border-[#DDE2DD]/70">
-          <div className="py-2 sm:py-0 sm:pr-4">
-            <span className="font-mono text-[9.5px] text-[#8A938E] uppercase block mb-0.5">Active Anchor</span>
-            <p className="font-medium text-[#1D2421]">35-Day Learning Habit</p>
-            <p className="text-[11.5px] text-[#66706B] mt-0.5 font-light">Morning craft practice holding steady</p>
+        {memories.length === 0 && intentions.length === 0 ? (
+          <p className="text-xs text-[#66706B] font-light leading-relaxed">
+            Observing baseline. As reflections and habit anchors are confirmed, your durable memory context cards will appear here.
+          </p>
+        ) : (
+          <div className="divide-y sm:divide-y-0 sm:divide-x divide-[#DDE2DD] grid grid-cols-1 sm:grid-cols-3 text-xs pt-2 border-t border-[#DDE2DD]/70 gap-2 sm:gap-0">
+            {memories.slice(0, 3).map((m: any, idx: number) => (
+              <div key={m.id || idx} className="py-2 sm:py-0 sm:px-3 first:pl-0 last:pr-0">
+                <span className="font-mono text-[9px] text-[#8A938E] uppercase block mb-0.5">{m.category.replace('_', ' ')}</span>
+                <p className="font-medium text-[#1D2421] truncate">{m.title}</p>
+                <p className="text-[11px] text-[#66706B] mt-0.5 font-light line-clamp-2">{m.summary}</p>
+              </div>
+            ))}
           </div>
-          <div className="py-2 sm:py-0 sm:px-4">
-            <span className="font-mono text-[9.5px] text-[#8A938E] uppercase block mb-0.5">Known Inflection</span>
-            <p className="font-medium text-[#1D2421]">July Sprint Compromise</p>
-            <p className="text-[11.5px] text-[#66706B] mt-0.5 font-light">Friend isolation trade-off identified</p>
-          </div>
-          <div className="py-2 sm:py-0 sm:pl-4">
-            <span className="font-mono text-[9.5px] text-[#8A938E] uppercase block mb-0.5">Current Recovery</span>
-            <p className="font-medium text-[#1D2421]">Social Balance Renewal</p>
-            <p className="text-[11.5px] text-[#66706B] mt-0.5 font-light">Sunday gatherings returning</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Main Dialogue Sanctuary */}
@@ -234,26 +231,26 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
             Inquire:
           </span>
           <button
-            onClick={() => handlePromptSuggestion("How can I grow in my career while protecting my energy?")}
-            className="shrink-0 px-3 py-1 rounded-full bg-[#FFFFFF] border border-[#DDE2DD] hover:border-[#355C4A] text-[#1D2421] transition text-[11.5px]"
-          >
-            Career growth vs. energy
-          </button>
-          <button
-            onClick={() => handlePromptSuggestion("I feel my energy is finally stabilizing, but I want to make sure I don't repeat the July crunch burnout.")}
-            className="shrink-0 px-3 py-1 rounded-full bg-[#FFFFFF] border border-[#DDE2DD] hover:border-[#355C4A] text-[#1D2421] transition text-[11.5px]"
-          >
-            Avoid July crunch recurrence
-          </button>
-          <button
             onClick={() => handlePromptSuggestion("What gradual patterns have you noticed in my habits?")}
             className="shrink-0 px-3 py-1 rounded-full bg-[#FFFFFF] border border-[#DDE2DD] hover:border-[#355C4A] text-[#1D2421] transition text-[11.5px]"
           >
             Patterns in my habits
           </button>
+          <button
+            onClick={() => handlePromptSuggestion("How can I grow while protecting my energy and restorative time?")}
+            className="shrink-0 px-3 py-1 rounded-full bg-[#FFFFFF] border border-[#DDE2DD] hover:border-[#355C4A] text-[#1D2421] transition text-[11.5px]"
+          >
+            Growth vs. energy balance
+          </button>
+          <button
+            onClick={() => handlePromptSuggestion("Where is my attention actually going compared to my stated intentions?")}
+            className="shrink-0 px-3 py-1 rounded-full bg-[#FFFFFF] border border-[#DDE2DD] hover:border-[#355C4A] text-[#1D2421] transition text-[11.5px]"
+          >
+            Intention vs. reality alignment
+          </button>
         </div>
 
-        {/* Message Stream — Intellectual Journal Dialogue */}
+        {/* Message Stream */}
         <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-6 bg-[#FFFFFF]">
           {messages.map(msg => {
             const isUser = msg.role === 'user';
@@ -262,59 +259,54 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
             return (
               <div
                 key={msg.id}
-                className={`flex gap-4 ${isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-3.5 max-w-[85%] ${
+                  isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'
+                }`}
               >
-                {!isUser && (
-                  <div className="w-8 h-8 rounded-full bg-[#355C4A] text-white flex items-center justify-center shrink-0 mt-1 shadow-2xs">
-                    <Sparkles size={14} />
-                  </div>
-                )}
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-medium mt-0.5 shadow-2xs ${
+                    isUser
+                      ? 'bg-[#355C4A] text-white'
+                      : isAdvisor
+                      ? 'bg-[#2E5E4E] text-white'
+                      : 'bg-[#EFF3EE] text-[#355C4A]'
+                  }`}
+                >
+                  {isUser ? <User size={14} /> : <Sparkles size={14} />}
+                </div>
 
                 <div
-                  className={`max-w-[85%] sm:max-w-[78%] rounded-[18px] p-5 leading-relaxed ${
+                  className={`rounded-[20px] p-4 sm:p-5 ${
                     isUser
-                      ? 'bg-[#355C4A] text-[#FFFFFF] shadow-xs'
-                      : 'bg-[#FAF9F5] border border-[#DDE2DD]/90 text-[#1D2421]'
+                      ? 'bg-[#355C4A] text-white shadow-xs'
+                      : isAdvisor
+                      ? 'bg-[#F4F7F4] border border-[#355C4A]/30 text-[#1D2421]'
+                      : 'bg-[#FAF9F5] border border-[#DDE2DD] text-[#1D2421]'
                   }`}
                 >
                   {!isUser && (
-                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#DDE2DD]/60 text-[10.5px] font-mono text-[#66706B]">
-                      <span className="font-semibold text-[#355C4A] uppercase tracking-wider">
-                        {isAdvisor ? 'Longitudinal Perspective' : 'Observatory Companion'}
+                    <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-[#DDE2DD]/60">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-[#355C4A] font-semibold">
+                        {isAdvisor ? 'Strategic Advisor' : 'Longitudinal Companion'}
                       </span>
-                      <span>
+                      <span className="text-[10px] text-[#8A938E] font-mono">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   )}
 
                   <RenderedMessageContent content={msg.content} isUser={isUser} />
-
-                  {isUser && (
-                    <div className="text-[10px] mt-2 text-right font-mono text-[#EBF2ED]/70">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  )}
                 </div>
-
-                {isUser && (
-                  <div className="w-8 h-8 rounded-full bg-[#EBECE7] text-[#1D2421] flex items-center justify-center shrink-0 mt-1">
-                    <User size={14} />
-                  </div>
-                )}
               </div>
             );
           })}
 
           {isLoading && (
-            <div className="flex gap-4 justify-start">
-              <div className="w-8 h-8 rounded-full bg-[#355C4A] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                <Sparkles size={14} />
+            <div className="flex gap-3 max-w-[80%] mr-auto items-center text-xs text-[#8A938E] font-mono">
+              <div className="w-8 h-8 rounded-full bg-[#EFF3EE] text-[#355C4A] flex items-center justify-center shadow-2xs">
+                <Loader2 size={14} className="animate-spin" />
               </div>
-              <div className="p-4 bg-[#FAF9F5] border border-[#DDE2DD] rounded-[18px] flex items-center gap-2.5 text-xs text-[#66706B]">
-                <Loader2 size={14} className="animate-spin text-[#355C4A]" />
-                <span>Reflecting against your 4-month trajectory...</span>
-              </div>
+              <span>Grounding in your longitudinal observatory…</span>
             </div>
           )}
 
@@ -322,22 +314,20 @@ export const CompanionChat: React.FC<CompanionChatProps> = ({ initialPrompt }) =
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSend} className="p-4 bg-[#FAF9F5] border-t border-[#DDE2DD] flex gap-3 items-center">
+        <form onSubmit={handleSend} className="p-4 bg-[#FAF9F5] border-t border-[#DDE2DD] flex items-center gap-3">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Explore with your companion: 'How did my habits change after the July sprint?'"
-            className="flex-1 text-xs sm:text-[13.5px] bg-[#FFFFFF] border-[#DDE2DD] rounded-full text-[#1D2421] placeholder:text-[#8A938E] py-3 px-5 focus:outline-none focus:border-[#355C4A]"
-            disabled={isLoading}
+            placeholder="Ask your companion: 'What patterns do you see in my trajectory?'"
+            className="flex-1 bg-[#FFFFFF] border border-[#DDE2DD] rounded-full px-4 py-2.5 text-xs text-[#1D2421] focus:outline-none focus:border-[#355C4A]"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="rounded-full bg-[#355C4A] text-white py-3 px-6 gap-2 text-xs sm:text-[13px] font-medium disabled:opacity-40 hover:bg-[#284738] transition flex items-center shrink-0 shadow-xs"
+            className="w-9 h-9 rounded-full bg-[#355C4A] text-white flex items-center justify-center hover:bg-[#284738] disabled:opacity-40 transition shrink-0 shadow-xs"
           >
-            <span>Send</span>
-            <Send size={13} />
+            <Send size={14} />
           </button>
         </form>
       </div>
