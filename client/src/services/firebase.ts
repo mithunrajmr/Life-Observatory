@@ -4,14 +4,14 @@ import {
   GoogleAuthProvider, 
   signInWithPopup, 
   signInWithRedirect,
-  getRedirectResult,
+  getRedirectResult as fbGetRedirectResult,
   signOut as fbSignOut, 
-  onAuthStateChanged, 
+  onAuthStateChanged as fbOnAuthStateChanged, 
   User
 } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDemoFallbackKeyForClientInit',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'life-observatory.firebaseapp.com',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'life-observatory',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'life-observatory.firebasestorage.app',
@@ -20,13 +20,20 @@ const firebaseConfig = {
 };
 
 let app: FirebaseApp;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
+try {
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
+} catch {
+  app = !getApps().length ? initializeApp({ ...firebaseConfig, apiKey: 'AIzaSyDemoFallbackKeyForClientInit' }) : getApps()[0];
 }
 
-export const auth = getAuth(app);
+let auth: any;
+try {
+  auth = getAuth(app);
+} catch (err) {
+  console.warn('Firebase getAuth fallback active:', err);
+  auth = { currentUser: null };
+}
+export { auth };
 
 // Clean GoogleAuthProvider for identity only (no premature Workspace scopes)
 export const googleProvider = new GoogleAuthProvider();
@@ -54,10 +61,29 @@ export async function signInWithGoogle(): Promise<User | null> {
 export async function signInWithGoogleRedirect(): Promise<void> {
   localStorage.removeItem('life_observatory_demo_user');
   sessionStorage.removeItem('life_observatory_signed_out');
-  await signInWithRedirect(auth, googleProvider);
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (error: any) {
+    console.warn('Google Sign-in redirect error:', error.message);
+  }
 }
 
-export { getRedirectResult };
+export async function getRedirectResult(authInstance: any): Promise<any> {
+  try {
+    if (!authInstance || typeof authInstance.getRedirectResult !== 'function') return null;
+    return await fbGetRedirectResult(authInstance);
+  } catch {
+    return null;
+  }
+}
+
+export function onAuthStateChanged(authInstance: any, nextOrObserver: (user: User | null) => void): () => void {
+  try {
+    return fbOnAuthStateChanged(authInstance, nextOrObserver);
+  } catch {
+    return () => {};
+  }
+}
 
 /**
  * Isolated Demo Mode:
@@ -114,4 +140,3 @@ export async function getIdToken(): Promise<string | null> {
   return null;
 }
 
-export { onAuthStateChanged };

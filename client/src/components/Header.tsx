@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, LogOut, LogIn, Menu, X, ChevronDown } from 'lucide-react';
+import { Search, LogOut, LogIn, Menu, X, ChevronDown, ShieldCheck } from 'lucide-react';
 import { User } from 'firebase/auth';
 import brandLogo from '../assets/logo.png';
 
@@ -7,6 +7,7 @@ interface HeaderProps {
   user: User | null;
   onSignIn: () => void;
   onSignOut: () => void;
+  onOpenSettings?: () => void;
   onQuickAsk?: (question: string) => void;
   onToggleMobileMenu?: () => void;
   isMobileMenuOpen?: boolean;
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   onSignIn,
   onSignOut,
+  onOpenSettings,
   onQuickAsk,
   onToggleMobileMenu,
   isMobileMenuOpen = false,
@@ -116,12 +118,24 @@ export const Header: React.FC<HeaderProps> = ({
                       <p className="text-[13px] font-semibold text-[#1D2421] truncate">{displayName}</p>
                       <p className="text-[11px] text-[#8A938E] truncate">{user.email || 'Exploring the demo journey'}</p>
                     </div>
+                    <div className="py-1 border-b border-[#DDE2DD]/60">
+                      <button
+                        onClick={() => {
+                          setShowDropdown(false);
+                          if (onOpenSettings) onOpenSettings();
+                        }}
+                        className="w-full text-left px-4 py-2 text-[13px] text-[#1D2421] hover:bg-[#F1F2EE] flex items-center gap-2 transition"
+                      >
+                        <ShieldCheck size={14} className="text-[#355C4A]" />
+                        <span>Data &amp; Privacy Settings</span>
+                      </button>
+                    </div>
                     <button
                       onClick={() => {
                         setShowDropdown(false);
                         onSignOut();
                       }}
-                      className="w-full text-left px-4 py-2.5 text-[13px] text-[#A95C58] hover:bg-[#F9EFEF] flex items-center gap-2 transition"
+                      className="w-full text-left px-4 py-2 text-[13px] text-[#A95C58] hover:bg-[#F9EFEF] flex items-center gap-2 transition"
                     >
                       <LogOut size={14} />
                       <span>Sign out</span>
