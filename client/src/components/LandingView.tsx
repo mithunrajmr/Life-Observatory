@@ -314,9 +314,16 @@ export const LandingView: React.FC<LandingViewProps> = ({ onSignIn, onSignInRedi
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#DDE2DD] py-6 px-6 sm:px-12 text-center text-xs text-[#8A938E] bg-[#F7F6F2]">
+      <footer className="border-t border-[#DDE2DD] py-6 px-6 sm:px-12 text-center text-xs text-[#8A938E] bg-[#F7F6F2] space-y-2">
         <p>Life Observatory • Longitudinal self-reflection model powered by Gemini on Cloud Run.</p>
-        <p className="mt-1 text-[11px] text-[#8A938E]/80">Designed for personal clarity. Your reflections stay entirely yours.</p>
+        <div className="flex items-center justify-center gap-4 text-[12px]">
+          <a href="/privacy" className="text-[#355C4A] hover:underline font-medium">Privacy Policy</a>
+          <span>•</span>
+          <a href="/terms" className="text-[#355C4A] hover:underline font-medium">Terms of Service</a>
+          <span>•</span>
+          <a href="mailto:mithunrajthrontok@gmail.com" className="text-[#355C4A] hover:underline font-medium">Support Contact</a>
+        </div>
+        <p className="text-[11px] text-[#8A938E]/80">Designed for personal clarity. Your reflections stay entirely yours.</p>
       </footer>
     </div>
   );

@@ -58,6 +58,23 @@ const clientBuildPath = candidatePaths.find(p => fs.existsSync(p)) || candidateP
 if (fs.existsSync(clientBuildPath)) {
   console.log(`[Life Observatory Server] Serving client static assets from: ${clientBuildPath}`);
   app.use(express.static(clientBuildPath));
+
+  app.get('/privacy', (_req, res) => {
+    const privacyFile = path.join(clientBuildPath, 'privacy.html');
+    if (fs.existsSync(privacyFile)) {
+      return res.sendFile(privacyFile);
+    }
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+
+  app.get('/terms', (_req, res) => {
+    const termsFile = path.join(clientBuildPath, 'terms.html');
+    if (fs.existsSync(termsFile)) {
+      return res.sendFile(termsFile);
+    }
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api')) {
       return next();
